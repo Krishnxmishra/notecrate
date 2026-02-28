@@ -1,0 +1,155 @@
+/* ---- Saved highlight marks ---- */
+.notecrate-mark {
+  border-radius: 2px;
+  padding: 1px 0;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.notecrate-mark:hover {
+  filter: brightness(0.92);
+}
+
+.notecrate-mark.nc-yellow { background: rgba(251, 191, 36, 0.35); }
+.notecrate-mark.nc-blue { background: rgba(56, 189, 248, 0.35); }
+.notecrate-mark.nc-pink { background: rgba(251, 113, 133, 0.35); }
+.notecrate-mark.nc-green { background: rgba(52, 211, 153, 0.35); }
+.notecrate-mark.nc-orange { background: rgba(251, 146, 60, 0.35); }
+
+/* ---- Save tooltip (appears on text select) ---- */
+.nc-tooltip {
+  position: absolute;
+  z-index: 10000;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.nc-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nc-tooltip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9px;
+  border: none;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.nc-tooltip-btn:hover {
+  background: #262626;
+}
+
+.nc-tooltip-btn svg {
+  opacity: 0.85;
+}
+
+.nc-tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---- Save toast ---- */
+.notecrate-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.notecrate-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.notecrate-toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.notecrate-toast-dot.yellow { background: #fbbf24; }
+.notecrate-toast-dot.blue { background: #38bdf8; }
+.notecrate-toast-dot.pink { background: #fb7185; }
+.notecrate-toast-dot.green { background: #34d399; }
+.notecrate-toast-dot.orange { background: #fb923c; }
+
+/* ---- YouTube save-clip button (own container on document.body) ---- */
+.nc-yt-wrap {
+  position: absolute;
+  z-index: 999;
+  pointer-events: none;
+  display: none;
+}
+
+.nc-yt-wrap.nc-yt-visible {
+  display: block;
+}
+
+.nc-yt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(10, 10, 10, 0.85);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.12s, transform 0.12s, opacity 0.2s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.nc-yt-btn:hover {
+  background: rgba(38, 38, 38, 0.95);
+  transform: scale(1.03);
+  opacity: 1;
+}
+
+.nc-yt-btn-pressed {
+  transform: scale(0.95) !important;
+}
+
+.nc-yt-btn svg {
+  flex-shrink: 0;
+}

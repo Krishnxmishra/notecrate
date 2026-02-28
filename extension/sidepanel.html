@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="sidepanel.css" />
+  <title>NoteCrate</title>
+</head>
+<body>
+  <div class="panel">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <svg class="logo-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <span class="logo-text">NoteCrate</span>
+      </div>
+      <button id="openApp" class="icon-btn" title="Open workspace">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- User bar (shown when logged in) -->
+    <div id="userBar" class="user-bar hidden">
+      <span id="userEmail" class="user-email"></span>
+      <button id="signOutBtn" class="sign-out-btn">Sign out</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <!-- Highlight toggle -->
+      <div class="toolbar-row">
+        <div class="toolbar-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 11-6 6v3h9l3-3"/>
+            <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+          </svg>
+          Highlighter
+        </div>
+        <button id="toggleHighlight" class="toggle" aria-label="Toggle highlighter">
+          <span class="toggle-knob"></span>
+        </button>
+      </div>
+
+      <!-- Colors -->
+      <div class="color-row">
+        <button class="color-btn active" data-color="yellow"><span class="dot yellow"></span></button>
+        <button class="color-btn" data-color="blue"><span class="dot blue"></span></button>
+        <button class="color-btn" data-color="pink"><span class="dot pink"></span></button>
+        <button class="color-btn" data-color="green"><span class="dot green"></span></button>
+        <button class="color-btn" data-color="orange"><span class="dot orange"></span></button>
+      </div>
+
+      <!-- Folder picker -->
+      <div class="folder-row">
+        <div class="folder-select-wrap">
+          <svg class="folder-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          </svg>
+          <select id="folderSelect" class="folder-select">
+            <option value="f-inbox">Inbox</option>
+          </select>
+          <svg class="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+        <button id="newFolderBtn" class="icon-btn small" title="New folder">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- YouTube Banner (shown on YT pages) -->
+    <div id="ytBanner" class="yt-banner hidden">
+      <div class="yt-banner-inner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <div class="yt-info">
+          <span class="yt-title" id="ytTitle">YouTube Video</span>
+          <span class="yt-time" id="ytTime">0:00</span>
+        </div>
+        <button id="saveClipBtn" class="save-clip-btn">Save clip</button>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tabs">
+      <button class="tab active" data-tab="highlights">
+        Highlights
+        <span class="tab-count" id="highlightTabCount">0</span>
+      </button>
+      <button class="tab" data-tab="page">
+        This page
+        <span class="tab-count" id="pageTabCount">0</span>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="content" id="content">
+      <div class="empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 11-6 6v3h9l3-3"/>
+          <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+        </svg>
+        <p>No highlights yet</p>
+        <p class="sub">Select text on any page to save</p>
+      </div>
+    </div>
+
+    <!-- New Folder Dialog (hidden by default) -->
+    <div id="newFolderDialog" class="dialog-overlay hidden">
+      <div class="dialog">
+        <h3>New Folder</h3>
+        <input id="newFolderInput" type="text" placeholder="Folder name" class="dialog-input" />
+        <div class="dialog-actions">
+          <button id="cancelFolder" class="dialog-btn secondary">Cancel</button>
+          <button id="confirmFolder" class="dialog-btn primary">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Screen (shown when not logged in) -->
+    <div id="authScreen" class="auth-screen hidden">
+      <div class="auth-card">
+        <svg class="auth-logo" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+        <h2 class="auth-title">Sign in to NoteCrate</h2>
+        <p class="auth-subtitle">Sync your highlights across devices</p>
+        <div id="authError" class="auth-error hidden"></div>
+        <input id="authEmail" type="email" placeholder="Email" class="dialog-input auth-input" />
+        <input id="authPassword" type="password" placeholder="Password" class="dialog-input auth-input" />
+        <button id="authSignIn" class="dialog-btn primary auth-btn">Sign in</button>
+        <button id="authSignUp" class="dialog-btn secondary auth-btn">Create account</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
