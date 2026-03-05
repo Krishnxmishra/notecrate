@@ -5,9 +5,11 @@
   let tooltip = null;
   let pendingText = "";
   let pendingRange = null;
+  let ytWrap = null;
 
   // ---- Skip on NoteCrate app pages ----
-  if (window.location.hostname === "localhost" && window.location.port === "3000") return;
+  const host = window.location.hostname;
+  if (host === "localhost" || host.includes("notecrate")) return;
 
   // ---- Init ----
   chrome.storage.local.get(["highlightingActive", "activeColor"], (result) => {
@@ -17,13 +19,13 @@
     if (isYouTubeWatch()) ytInit();
   });
 
-  // ---- Messages ----
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // ---- Messages from background/sidepanel ----
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === "toggle-highlighting") {
       enabled = msg.active;
       if (enabled) startListening();
       else stopListening();
-      if (ytUpdateVisibility) ytUpdateVisibility();
+      ytUpdateVisibility();
     }
     if (msg.action === "set-color") {
       activeColor = msg.color;
@@ -50,13 +52,10 @@
 
   function onMouseUp(e) {
     if (e.target.closest && (e.target.closest(".nc-tooltip") || e.target.closest(".nc-yt-wrap"))) return;
-
-    // Small delay so the browser finalises the selection before we read it
     setTimeout(() => {
       const selection = window.getSelection();
-      const text = selection.toString().trim();
+      const text = selection?.toString().trim();
       if (!text || text.length < 2) { hideTooltip(); return; }
-
       pendingText = text;
       try { pendingRange = selection.getRangeAt(0).cloneRange(); } catch (_) { pendingRange = null; }
       showTooltip(selection);
@@ -68,7 +67,6 @@
     hideTooltip();
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-
     const colorHex = { yellow: "#fbbf24", blue: "#38bdf8", pink: "#fb7185", green: "#34d399", orange: "#fb923c" };
 
     tooltip = document.createElement("div");
@@ -79,7 +77,7 @@
           <path d="m9 11-6 6v3h9l3-3"/>
           <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
         </svg>
-        <span class="nc-tooltip-dot" style="background:${colorHex[activeColor]}"></span>
+        <span class="nc-tooltip-dot" style="background:${colorHex[activeColor] || "#fbbf24"}"></span>
         Save
       </button>
     `;
@@ -93,10 +91,13 @@
     tooltip.style.left = Math.max(4, left) + "px";
     tooltip.style.top = Math.max(4, top) + "px";
 
-    requestAnimationFrame(() => { requestAnimationFrame(() => { if (tooltip) tooltip.classList.add("show"); }); });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { if (tooltip) tooltip.classList.add("show"); });
+    });
 
     tooltip.querySelector(".nc-tooltip-btn").addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
       if (pendingRange) {
         const sel = window.getSelection();
         sel.removeAllRanges();
@@ -109,18 +110,19 @@
 
   function hideTooltip() {
     if (tooltip) { tooltip.remove(); tooltip = null; }
-    pendingText = ""; pendingRange = null;
+    pendingText = "";
+    pendingRange = null;
   }
 
   document.addEventListener("mousedown", (e) => {
     if (tooltip && !(e.target.closest && e.target.closest(".nc-tooltip"))) {
-      // Delay so the tooltip button's click can fire first
       setTimeout(() => hideTooltip(), 80);
     }
   });
+
   document.addEventListener("scroll", () => { if (tooltip) hideTooltip(); }, true);
 
-  // ---- Save ----
+  // ---- Save selection ----
   function saveSelection(text, selection) {
     try {
       const range = selection.getRangeAt(0);
@@ -132,14 +134,16 @@
     selection.removeAllRanges();
 
     const data = {
-      text, sourceTitle: document.title.replace(" - YouTube", ""),
-      sourceUrl: window.location.href, type: "text",
+      text,
+      sourceTitle: document.title.replace(" - YouTube", ""),
+      sourceUrl: window.location.href,
+      type: "text",
     };
 
     if (isYouTubeWatch()) {
       const video = document.querySelector("video");
-      const urlParams = new URLSearchParams(window.location.search);
-      data.videoId = urlParams.get("v");
+      const videoId = new URLSearchParams(window.location.search).get("v");
+      data.videoId = videoId;
       data.videoTimestamp = video ? formatTime(Math.floor(video.currentTime)) : "0:00";
       data.type = "video";
     }
@@ -150,27 +154,26 @@
 
   // ============================================================
   //  YOUTUBE CLIP BUTTON
-  //  Lives in its own container on document.body.
-  //  Never modifies YouTube's DOM or styles.
   // ============================================================
 
-  let ytWrap = null;
-
   function isYouTubeWatch() {
-    return window.location.hostname.includes("youtube.com") && window.location.pathname.startsWith("/watch");
+    return window.location.hostname.includes("youtube.com") &&
+      window.location.pathname.startsWith("/watch");
   }
 
   function ytUpdateVisibility() {
     if (!ytWrap) return;
-    if (enabled) { ytWrap.style.display = ""; }
-    else { ytWrap.style.display = "none"; }
+    ytWrap.style.display = enabled ? "" : "none";
   }
 
   function ytInit() {
     function tryMount() {
       const player = document.querySelector("#movie_player");
-      if (player) mountYtButton(player);
-      else setTimeout(tryMount, 500);
+      if (player) {
+        mountYtButton(player);
+      } else {
+        setTimeout(tryMount, 500);
+      }
     }
     tryMount();
   }
@@ -178,14 +181,17 @@
   function mountYtButton(player) {
     if (ytWrap) return;
 
-    // Ensure player has position for absolute child
-    const playerStyle = window.getComputedStyle(player);
-    if (playerStyle.position === "static") {
+    if (window.getComputedStyle(player).position === "static") {
       player.style.position = "relative";
     }
 
     ytWrap = document.createElement("div");
     ytWrap.className = "nc-yt-wrap";
+    ytWrap.style.position = "absolute";
+    ytWrap.style.top = "12px";
+    ytWrap.style.right = "12px";
+    ytWrap.style.zIndex = "999";
+
     ytWrap.innerHTML = `
       <button class="nc-yt-btn">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -195,20 +201,10 @@
       </button>
     `;
 
-    // Place inside the player so it doesn't affect page layout
     player.appendChild(ytWrap);
-
-    // Position at top-right inside player
-    ytWrap.style.position = "absolute";
-    ytWrap.style.top = "12px";
-    ytWrap.style.right = "12px";
-
-    // Show/hide based on highlighter toggle
     ytUpdateVisibility();
 
-    const btn = ytWrap.querySelector(".nc-yt-btn");
-
-    btn.addEventListener("click", (e) => {
+    ytWrap.querySelector(".nc-yt-btn").addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
 
@@ -231,21 +227,36 @@
       });
 
       showToast(`Clip saved at ${timestamp}`);
+      const btn = ytWrap.querySelector(".nc-yt-btn");
       btn.classList.add("nc-yt-btn-pressed");
       setTimeout(() => btn.classList.remove("nc-yt-btn-pressed"), 200);
     });
+  }
 
-    // Cleanup on YouTube SPA navigation
-    const titleEl = document.querySelector("title");
-    if (titleEl) {
-      const navObs = new MutationObserver(() => {
-        if (!isYouTubeWatch()) {
-          if (ytWrap) { ytWrap.remove(); ytWrap = null; }
-          navObs.disconnect();
-        }
-      });
-      navObs.observe(titleEl, { childList: true });
+  // ---- YouTube SPA navigation watcher ----
+  // YouTube is a SPA — navigating between pages doesn't reload the content script.
+  // Watch for URL changes and mount/unmount the clip button accordingly.
+  let lastUrl = window.location.href;
+  const urlObserver = new MutationObserver(() => {
+    const currentUrl = window.location.href;
+    if (currentUrl === lastUrl) return;
+    lastUrl = currentUrl;
+
+    if (isYouTubeWatch()) {
+      // Navigated to a watch page — mount button after player loads
+      ytWrap = null; // reset so mountYtButton runs again
+      ytInit();
+    } else {
+      // Navigated away from a watch page — remove button
+      if (ytWrap) { ytWrap.remove(); ytWrap = null; }
     }
+  });
+
+  if (window.location.hostname.includes("youtube.com")) {
+    urlObserver.observe(document.querySelector("title") || document.documentElement, {
+      subtree: true,
+      childList: true,
+    });
   }
 
   // ============================================================
@@ -258,9 +269,14 @@
     toast.className = "notecrate-toast";
     toast.innerHTML = `<div class="notecrate-toast-dot ${activeColor}"></div><span>${message}</span>`;
     document.body.appendChild(toast);
-    requestAnimationFrame(() => { requestAnimationFrame(() => toast.classList.add("show")); });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { if (toast) toast.classList.add("show"); });
+    });
     setTimeout(() => {
-      if (toast) { toast.classList.remove("show"); setTimeout(() => { if (toast) toast.remove(); toast = null; }, 250); }
+      if (toast) {
+        toast.classList.remove("show");
+        setTimeout(() => { if (toast) { toast.remove(); toast = null; } }, 250);
+      }
     }, 2000);
   }
 

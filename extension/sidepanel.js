@@ -5,13 +5,14 @@
   let activeColor = "yellow";
   let activeFolder = null;
   let highlightingActive = false;
-  let currentTab = "highlights"; // "highlights" | "page"
+  let currentTab = "highlights";
   let currentPageUrl = "";
   let ytPollInterval = null;
   let currentUser = null;
 
   // ---- Elements ----
   const $ = (sel) => document.querySelector(sel);
+
   const toggleBtn = $("#toggleHighlight");
   const folderSelect = $("#folderSelect");
   const content = $("#content");
@@ -30,7 +31,6 @@
   const cancelFolder = $("#cancelFolder");
   const confirmFolder = $("#confirmFolder");
 
-  // Auth elements
   const authScreen = $("#authScreen");
   const authEmail = $("#authEmail");
   const authPassword = $("#authPassword");
@@ -41,21 +41,25 @@
   const userEmailEl = $("#userEmail");
   const signOutBtn = $("#signOutBtn");
 
-  // ---- Init ----
+  // ---- Boot ----
   loadState();
 
-  // Listen for new highlights from background
+  // ---- Background messages ----
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === "highlight-saved") {
       highlights.unshift(msg.highlight);
       render();
     }
     if (msg.action === "auth-required") {
-      showAuthScreen();
+      if (authScreen.classList.contains("hidden")) showAuthScreen();
+    }
+    if (msg.action === "save-error") {
+      showToastMsg("Failed to save — check connection");
     }
   });
 
-  // ---- Auth ----
+  // ---- Auth UI ----
+
   function showAuthScreen() {
     authScreen.classList.remove("hidden");
     authError.classList.add("hidden");
@@ -85,22 +89,25 @@
   authSignIn.addEventListener("click", () => {
     const email = authEmail.value.trim();
     const password = authPassword.value;
-    if (!email || !password) return showAuthError("Email and password required");
+    if (!email || !password) return showAuthError("Email and password required.");
 
     authSignIn.disabled = true;
-    authSignIn.textContent = "Signing in...";
+    authSignIn.textContent = "Signing in\u2026";
+    authError.classList.add("hidden");
 
     chrome.runtime.sendMessage({ action: "sign-in", email, password }, (res) => {
       authSignIn.disabled = false;
       authSignIn.textContent = "Sign in";
 
-      if (res?.success) {
+      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
+
+      if (res?.success && res.user) {
         currentUser = res.user;
         hideAuthScreen();
         updateUserBar();
-        loadState(); // Reload data from Supabase
+        loadState();
       } else {
-        showAuthError(res?.error || "Sign in failed");
+        showAuthError(res?.error || "Sign in failed. Check your credentials.");
       }
     });
   });
@@ -108,15 +115,18 @@
   authSignUp.addEventListener("click", () => {
     const email = authEmail.value.trim();
     const password = authPassword.value;
-    if (!email || !password) return showAuthError("Email and password required");
-    if (password.length < 6) return showAuthError("Password must be at least 6 characters");
+    if (!email || !password) return showAuthError("Email and password required.");
+    if (password.length < 6) return showAuthError("Password must be at least 6 characters.");
 
     authSignUp.disabled = true;
-    authSignUp.textContent = "Creating...";
+    authSignUp.textContent = "Creating\u2026";
+    authError.classList.add("hidden");
 
     chrome.runtime.sendMessage({ action: "sign-up", email, password }, (res) => {
       authSignUp.disabled = false;
       authSignUp.textContent = "Create account";
+
+      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
 
       if (res?.success) {
         if (res.user) {
@@ -125,10 +135,10 @@
           updateUserBar();
           loadState();
         } else {
-          showAuthError("Check your email to confirm your account");
+          showAuthError("Check your email to confirm your account, then sign in.");
         }
       } else {
-        showAuthError(res?.error || "Sign up failed");
+        showAuthError(res?.error || "Sign up failed.");
       }
     });
   });
@@ -143,23 +153,30 @@
       highlights = [];
       folders = [];
       activeFolder = null;
+      highlightingActive = false;
+      toggleBtn.classList.remove("active");
       updateUserBar();
       render();
       showAuthScreen();
     });
   });
 
-  // ---- Load state from background (Supabase) ----
+  // ---- Load state from background ----
+
   function loadState() {
     chrome.runtime.sendMessage({ action: "get-state" }, (result) => {
-      if (!result) return;
+      if (chrome.runtime.lastError || !result) {
+        setTimeout(loadState, 500);
+        return;
+      }
 
-      // Check auth state
       currentUser = result.user || null;
+
       if (!currentUser) {
         showAuthScreen();
         return;
       }
+
       hideAuthScreen();
       updateUserBar();
 
@@ -169,7 +186,6 @@
       activeFolder = result.activeFolder || null;
       highlightingActive = result.highlightingActive || false;
 
-      // Set UI
       toggleBtn.classList.toggle("active", highlightingActive);
 
       colorBtns.forEach((btn) => {
@@ -178,6 +194,7 @@
 
       populateFolders();
       if (activeFolder) folderSelect.value = activeFolder;
+
       detectCurrentPage();
       render();
     });
@@ -185,6 +202,13 @@
 
   function populateFolders() {
     folderSelect.innerHTML = "";
+    if (folders.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No folders yet";
+      folderSelect.appendChild(opt);
+      return;
+    }
     folders.forEach((f) => {
       const opt = document.createElement("option");
       opt.value = f.id;
@@ -193,14 +217,14 @@
     });
   }
 
-  // ---- Detect current page (YouTube, etc) ----
+  // ---- YouTube detection ----
+
   function detectCurrentPage() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabList) => {
-      if (!tabList[0]) return;
+      if (!tabList || !tabList[0]) return;
       const tab = tabList[0];
       currentPageUrl = tab.url || "";
 
-      // Check YouTube
       if (currentPageUrl.includes("youtube.com/watch")) {
         ytBanner.classList.remove("hidden");
         ytTitle.textContent = (tab.title || "").replace(" - YouTube", "");
@@ -219,35 +243,24 @@
     ytPollInterval = setInterval(() => {
       chrome.tabs.sendMessage(tabId, { action: "get-yt-time" }, (response) => {
         if (chrome.runtime.lastError) return;
-        if (response && response.timestamp) {
-          ytTime.textContent = response.timestamp;
-        }
+        if (response?.timestamp) ytTime.textContent = response.timestamp;
       });
     }, 1000);
   }
 
   function stopYtPoll() {
-    if (ytPollInterval) {
-      clearInterval(ytPollInterval);
-      ytPollInterval = null;
-    }
+    if (ytPollInterval) { clearInterval(ytPollInterval); ytPollInterval = null; }
   }
 
-  // ---- Render highlights ----
+  // ---- Render ----
+
   function render() {
-    let list = highlights;
+    const list = currentTab === "page"
+      ? highlights.filter((h) => h.sourceUrl === currentPageUrl)
+      : highlights;
 
-    if (currentTab === "page") {
-      list = highlights.filter((h) => h.sourceUrl === currentPageUrl);
-    }
-
-    // Sort newest first (already sorted from Supabase, but ensure)
-    list = [...list];
-
-    // Update counts
     highlightTabCount.textContent = highlights.length;
-    const pageHighlights = highlights.filter((h) => h.sourceUrl === currentPageUrl);
-    pageTabCount.textContent = pageHighlights.length;
+    pageTabCount.textContent = highlights.filter((h) => h.sourceUrl === currentPageUrl).length;
 
     if (!list.length) {
       content.innerHTML = `
@@ -263,16 +276,17 @@
       return;
     }
 
-    content.innerHTML = list.map((h) => cardHtml(h)).join("");
+    content.innerHTML = list.map(cardHtml).join("");
 
-    // Attach delete handlers
     content.querySelectorAll(".h-delete").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const id = btn.dataset.id;
-        chrome.runtime.sendMessage({ action: "delete-highlight", id }, () => {
-          highlights = highlights.filter((h) => h.id !== id);
-          render();
+        chrome.runtime.sendMessage({ action: "delete-highlight", id }, (res) => {
+          if (res?.success !== false) {
+            highlights = highlights.filter((h) => h.id !== id);
+            render();
+          }
         });
       });
     });
@@ -281,23 +295,14 @@
   function cardHtml(h) {
     const isVideo = h.type === "video" && h.videoId;
     const isImage = h.type === "image" && h.imageUrl;
+    let body = "";
 
-    let bodyContent = "";
-
-    if (isImage) {
-      bodyContent = `<img class="h-image" src="${esc(h.imageUrl)}" alt="Saved image" />`;
-    }
-
-    if (h.text) {
-      bodyContent += `<div class="h-text">${esc(h.text)}</div>`;
-    }
-
+    if (isImage) body += `<img class="h-image" src="${esc(h.imageUrl)}" alt="Saved image" />`;
+    if (h.text) body += `<div class="h-text">${esc(h.text)}</div>`;
     if (isVideo) {
-      bodyContent += `
+      body += `
         <div class="h-video-badge">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <polygon points="5 3 19 12 5 21 5 3"/>
-          </svg>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           ${h.videoTimestamp || "0:00"}
         </div>
       `;
@@ -307,7 +312,7 @@
       <div class="h-card">
         <div class="h-bar ${h.color}"></div>
         <div class="h-body">
-          ${bodyContent}
+          ${body}
           <div class="h-meta">
             <span class="h-source">${esc(h.sourceTitle)}</span>
             <span class="h-date">${h.createdAt}</span>
@@ -329,19 +334,27 @@
     return d.innerHTML;
   }
 
+  function showToastMsg(text) {
+    let t = $("#sp-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "sp-toast";
+      t.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0a0a0a;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:9999;opacity:0;transition:opacity 0.2s;white-space:nowrap;pointer-events:none";
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    t.style.opacity = "1";
+    setTimeout(() => { t.style.opacity = "0"; }, 2500);
+  }
+
   // ---- Events ----
 
-  // Toggle highlighting
   toggleBtn.addEventListener("click", () => {
     highlightingActive = !highlightingActive;
     toggleBtn.classList.toggle("active", highlightingActive);
-    chrome.runtime.sendMessage({
-      action: "toggle-highlighting",
-      active: highlightingActive,
-    });
+    chrome.runtime.sendMessage({ action: "toggle-highlighting", active: highlightingActive });
   });
 
-  // Color selection
   colorBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       colorBtns.forEach((b) => b.classList.remove("active"));
@@ -351,13 +364,11 @@
     });
   });
 
-  // Folder selection
   folderSelect.addEventListener("change", () => {
     activeFolder = folderSelect.value;
     chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolder });
   });
 
-  // Tab switching
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       tabs.forEach((t) => t.classList.remove("active"));
@@ -367,30 +378,35 @@
     });
   });
 
-  // Open app
   openAppBtn.addEventListener("click", () => {
-    chrome.tabs.create({ url: "http://localhost:3000" });
+    // Pass session tokens so the web app can log in automatically
+    chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
+      if (res?.accessToken && res?.refreshToken) {
+        const url = `http://localhost:3000/auth/extension#access_token=${encodeURIComponent(res.accessToken)}&refresh_token=${encodeURIComponent(res.refreshToken)}&type=recovery`;
+        chrome.tabs.create({ url });
+      } else {
+        chrome.tabs.create({ url: "http://localhost:3000/dashboard" });
+      }
+    });
   });
 
-  // Save YouTube clip
   saveClipBtn.addEventListener("click", () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabList) => {
-      if (!tabList[0]) return;
+      if (!tabList?.[0]) return;
       const tab = tabList[0];
       chrome.tabs.sendMessage(tab.id, { action: "get-yt-time" }, (response) => {
         const timestamp = response?.timestamp || "0:00";
-        const videoUrl = tab.url;
-        const videoId = extractYouTubeId(videoUrl);
-        const title = (tab.title || "").replace(" - YouTube", "");
+        const videoId = extractYouTubeId(tab.url);
+        const title = (tab.title || "").replace(" - YouTube", "").trim();
 
         chrome.runtime.sendMessage({
           action: "save-highlight",
           data: {
             text: `${title} (at ${timestamp})`,
             sourceTitle: title,
-            sourceUrl: videoUrl,
+            sourceUrl: tab.url,
             type: "video",
-            videoId: videoId,
+            videoId,
             videoTimestamp: timestamp,
           },
         });
@@ -398,24 +414,13 @@
     });
   });
 
-  function extractYouTubeId(url) {
-    if (!url) return null;
-    const match = url.match(
-      /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/
-    );
-    return match ? match[1] : null;
-  }
-
-  // New folder dialog
   newFolderBtn.addEventListener("click", () => {
     newFolderDialog.classList.remove("hidden");
     newFolderInput.value = "";
     newFolderInput.focus();
   });
 
-  cancelFolder.addEventListener("click", () => {
-    newFolderDialog.classList.add("hidden");
-  });
+  cancelFolder.addEventListener("click", () => newFolderDialog.classList.add("hidden"));
 
   confirmFolder.addEventListener("click", () => {
     const name = newFolderInput.value.trim();
@@ -437,14 +442,28 @@
     if (e.key === "Escape") cancelFolder.click();
   });
 
-  // Refresh when tab changes
-  chrome.tabs.onActivated?.addListener(() => {
-    detectCurrentPage();
+  chrome.tabs.onActivated?.addListener(() => detectCurrentPage());
+  chrome.tabs.onUpdated?.addListener((_tabId, changeInfo) => {
+    if (changeInfo.url || changeInfo.status === "complete") detectCurrentPage();
   });
 
-  chrome.tabs.onUpdated?.addListener((tabId, changeInfo) => {
-    if (changeInfo.url || changeInfo.status === "complete") {
-      detectCurrentPage();
+  // ---- YouTube ID helper ----
+
+  function extractYouTubeId(url) {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes("youtube.com")) {
+        const v = u.searchParams.get("v");
+        if (v) return v;
+        const parts = u.pathname.split("/");
+        if ((parts[1] === "embed" || parts[1] === "shorts") && parts[2]) return parts[2].slice(0, 11);
+      }
+      if (u.hostname === "youtu.be") return u.pathname.slice(1, 12) || null;
+    } catch (_) {
+      const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+      return match ? match[1] : null;
     }
-  });
+    return null;
+  }
 })();

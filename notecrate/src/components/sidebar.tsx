@@ -11,14 +11,19 @@ import {
   Search,
   Plus,
 } from "lucide-react";
-import { getFolderTree } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import type { Folder } from "@/lib/data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-export function Sidebar() {
-  const tree = getFolderTree();
+type FolderWithChildren = Folder & { children: Folder[] };
+
+interface SidebarProps {
+  tree: FolderWithChildren[];
+}
+
+export function Sidebar({ tree }: SidebarProps) {
   const pathname = usePathname();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(tree.map((f) => f.id))
@@ -55,10 +60,10 @@ export function Sidebar() {
       <div className="px-2.5 pt-3 pb-1">
         <nav className="flex flex-col gap-px">
           <Link
-            href="/"
+            href="/dashboard"
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-[6px] text-[13px] transition-colors",
-              isActive("/")
+              isActive("/dashboard")
                 ? "bg-neutral-200/70 font-medium text-neutral-900"
                 : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
             )}
