@@ -3,7 +3,16 @@
   "name": "NoteCrate",
   "version": "1.0.0",
   "description": "Highlight, clip, and save web content to your research workspace.",
-  "permissions": ["activeTab", "storage", "contextMenus", "sidePanel", "tabs"],
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "sidePanel",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://jlzalpnwplpkllgfyxqz.supabase.co/*"
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },
@@ -23,9 +32,15 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "css": ["content.css"],
-      "js": ["content.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ],
   "background": {

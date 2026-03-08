@@ -12,6 +12,14 @@
   filter: brightness(0.92);
 }
 
+/* Toggle-off: hide marks without collapsing surrounding text layout */
+.notecrate-mark.nc-hidden {
+  color: inherit !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  transition: background 0.2s ease;
+}
+
 .notecrate-mark.nc-yellow { background: rgba(251, 191, 36, 0.35); }
 .notecrate-mark.nc-blue { background: rgba(56, 189, 248, 0.35); }
 .notecrate-mark.nc-pink { background: rgba(251, 113, 133, 0.35); }
@@ -20,8 +28,8 @@
 
 /* ---- Save tooltip (appears on text select) ---- */
 .nc-tooltip {
-  position: absolute;
-  z-index: 10000;
+  position: fixed;
+  z-index: 2147483647;
   opacity: 0;
   transform: translateY(4px);
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
@@ -108,16 +116,11 @@
 .notecrate-toast-dot.green { background: #34d399; }
 .notecrate-toast-dot.orange { background: #fb923c; }
 
-/* ---- YouTube save-clip button (own container on document.body) ---- */
+/* ---- YouTube save-clip button ---- */
 .nc-yt-wrap {
   position: absolute;
   z-index: 999;
   pointer-events: none;
-  display: none;
-}
-
-.nc-yt-wrap.nc-yt-visible {
-  display: block;
 }
 
 .nc-yt-btn {
