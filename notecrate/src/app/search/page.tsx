@@ -9,7 +9,7 @@ export default async function SearchPage() {
   return (
     <AppShell>
       <TopNav title="Search" />
-      <div className="flex-1 overflow-y-auto bg-[#fbfbfb]">
+      <div className="flex-1 overflow-y-auto bg-[#fbfbfb] dark:bg-neutral-950">
         <div className="mx-auto max-w-[680px] px-6 py-8">
           <SearchView highlights={highlights} />
         </div>

@@ -21,12 +21,20 @@ import { cn } from "@/lib/utils";
 
 type ExportFormat = "markdown" | "json" | "txt";
 
+const TOOL_LABELS: Record<string, string> = {
+  claude: "Claude",
+  chatgpt: "ChatGPT",
+  gemini: "Gemini",
+};
+
 interface StudioViewProps {
   folder: Folder;
   highlights: Highlight[];
+  tool?: string;
 }
 
-export function StudioView({ folder, highlights }: StudioViewProps) {
+export function StudioView({ folder, highlights, tool = "claude" }: StudioViewProps) {
+  const toolLabel = TOOL_LABELS[tool] ?? "Claude";
   const [copied, setCopied] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("markdown");
   const [selectedColors, setSelectedColors] = useState<Set<HighlightColor>>(new Set());
@@ -134,20 +142,20 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Header card */}
-        <div className="border-b border-neutral-200/60 bg-white px-6 py-5">
+        <div className="border-b border-neutral-200/60 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-6 py-5">
           <div className="mx-auto max-w-[800px]">
             <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-900">
-                <Sparkles className="h-5 w-5 text-white" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-900 dark:bg-neutral-100">
+                <Sparkles className="h-5 w-5 text-white dark:text-neutral-900" />
               </div>
               <div>
-                <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900">
-                  Export for Claude
+                <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900 dark:text-neutral-100">
+                  Export for {toolLabel}
                 </h2>
-                <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-                  Copy or download your highlights to use with Claude. Upload the
-                  file as context in any Claude conversation, or use the{" "}
-                  <span className="font-medium text-neutral-700">
+                <p className="mt-1 text-[13px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  Copy or download your highlights to use with {toolLabel}. Upload the
+                  file as context in any {toolLabel} conversation, or use the{" "}
+                  <span className="font-medium text-neutral-700 dark:text-neutral-300">
                     NoteCrate MCP server
                   </span>{" "}
                   for direct integration.
@@ -158,7 +166,7 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
             {/* Controls */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {/* Format selector */}
-              <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5">
+              <div className="flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 p-0.5">
                 {(["markdown", "json", "txt"] as ExportFormat[]).map((fmt) => (
                   <button
                     key={fmt}
@@ -166,8 +174,8 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
                     className={cn(
                       "rounded-md px-3 py-1.5 text-[12px] font-medium transition-all",
                       exportFormat === fmt
-                        ? "bg-white text-neutral-900 shadow-sm"
-                        : "text-neutral-500 hover:text-neutral-700"
+                        ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-sm"
+                        : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
                     )}
                   >
                     {fmt === "markdown" ? "Markdown" : fmt === "json" ? "JSON" : "Plain Text"}
@@ -229,15 +237,15 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
         </div>
 
         {/* Preview */}
-        <div className="flex-1 overflow-y-auto bg-[#fbfbfb] px-6 py-5">
+        <div className="flex-1 overflow-y-auto bg-[#fbfbfb] dark:bg-neutral-950 px-6 py-5">
           <div className="mx-auto max-w-[800px]">
-            <div className="mb-3 flex items-center gap-2 text-[12px] text-neutral-400">
+            <div className="mb-3 flex items-center gap-2 text-[12px] text-neutral-400 dark:text-neutral-500">
               <FileText className="h-3.5 w-3.5" />
               Preview &middot; {filteredHighlights.length} highlights
             </div>
-            <div className="rounded-xl border border-neutral-200 bg-white">
+            <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
               <ScrollArea className="max-h-[calc(100vh-340px)]">
-                <pre className="whitespace-pre-wrap p-5 font-mono text-[12px] leading-[1.8] text-neutral-700">
+                <pre className="whitespace-pre-wrap p-5 font-mono text-[12px] leading-[1.8] text-neutral-700 dark:text-neutral-300">
                   {formattedContent}
                 </pre>
               </ScrollArea>
@@ -247,41 +255,41 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
       </div>
 
       {/* Right sidebar - MCP instructions */}
-      <div className="hidden w-[300px] flex-col border-l border-neutral-200/60 bg-[#fafafa] xl:flex">
+      <div className="hidden w-[300px] flex-col border-l border-neutral-200/60 dark:border-neutral-800 bg-[#fafafa] dark:bg-neutral-950 xl:flex">
         <div className="px-4 py-4">
-          <h3 className="text-[12px] font-medium uppercase tracking-[0.06em] text-neutral-400">
+          <h3 className="text-[12px] font-medium uppercase tracking-[0.06em] text-neutral-400 dark:text-neutral-500">
             How to use with Claude
           </h3>
         </div>
         <ScrollArea className="flex-1 px-4">
           <div className="flex flex-col gap-5 pb-6">
-            <div className="rounded-lg border border-neutral-200 bg-white p-4">
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 text-[11px] font-bold text-white">1</div>
-                <span className="text-[13px] font-medium text-neutral-900">Copy &amp; paste</span>
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 dark:bg-neutral-100 text-[11px] font-bold text-white dark:text-neutral-900">1</div>
+                <span className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">Copy &amp; paste</span>
               </div>
-              <p className="text-[12px] leading-relaxed text-neutral-500">
+              <p className="text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
                 Click &quot;Copy to clipboard&quot; and paste directly into a Claude conversation as context.
               </p>
             </div>
 
-            <div className="rounded-lg border border-neutral-200 bg-white p-4">
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 text-[11px] font-bold text-white">2</div>
-                <span className="text-[13px] font-medium text-neutral-900">Upload file</span>
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 dark:bg-neutral-100 text-[11px] font-bold text-white dark:text-neutral-900">2</div>
+                <span className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">Upload file</span>
               </div>
-              <p className="text-[12px] leading-relaxed text-neutral-500">
+              <p className="text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
                 Download the file and upload it to Claude. Works great with Projects for persistent context.
               </p>
             </div>
 
-            <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 p-4">
+            <div className="rounded-lg border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/50 p-4">
               <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 text-[11px] font-bold text-white">3</div>
-                <span className="text-[13px] font-medium text-neutral-900">MCP Server</span>
-                <span className="rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">Advanced</span>
+                <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-900 dark:bg-neutral-100 text-[11px] font-bold text-white dark:text-neutral-900">3</div>
+                <span className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100">MCP Server</span>
+                <span className="rounded-full bg-neutral-200 dark:bg-neutral-700 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 dark:text-neutral-400">Advanced</span>
               </div>
-              <p className="mb-3 text-[12px] leading-relaxed text-neutral-500">
+              <p className="mb-3 text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
                 Connect Claude directly to your highlights. Claude can read your folders automatically.
               </p>
               <div className="rounded-md bg-neutral-900 p-3">
@@ -305,7 +313,7 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
             </div>
 
             <div>
-              <h4 className="mb-2 text-[12px] font-medium text-neutral-500">Suggested prompts</h4>
+              <h4 className="mb-2 text-[12px] font-medium text-neutral-500 dark:text-neutral-400">Suggested prompts</h4>
               <div className="flex flex-col gap-1.5">
                 {[
                   "Summarize the key themes",
@@ -316,7 +324,7 @@ export function StudioView({ folder, highlights }: StudioViewProps) {
                   <button
                     key={prompt}
                     onClick={() => navigator.clipboard.writeText(prompt)}
-                    className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-left text-[12px] text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                    className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-left text-[12px] text-neutral-600 dark:text-neutral-400 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                   >
                     {prompt}
                   </button>

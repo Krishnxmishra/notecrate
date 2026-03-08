@@ -3,18 +3,20 @@
   let highlights = [];
   let folders = [];
   let activeColor = "yellow";
-  let activeFolder = null;
+  let activeFolderIds = []; // multi-select: array of folder IDs
   let highlightingActive = false;
   let currentTab = "highlights";
   let currentPageUrl = "";
   let ytPollInterval = null;
   let currentUser = null;
+  let currentUserName = null;
+  let isDark = false;
 
   // ---- Elements ----
   const $ = (sel) => document.querySelector(sel);
 
   const toggleBtn = $("#toggleHighlight");
-  const folderSelect = $("#folderSelect");
+  const folderList = $("#folderList");
   const content = $("#content");
   const highlightTabCount = $("#highlightTabCount");
   const pageTabCount = $("#pageTabCount");
@@ -30,6 +32,7 @@
   const newFolderInput = $("#newFolderInput");
   const cancelFolder = $("#cancelFolder");
   const confirmFolder = $("#confirmFolder");
+  const parentFolderSelect = $("#parentFolderSelect");
 
   const authScreen = $("#authScreen");
   const authEmail = $("#authEmail");
@@ -37,9 +40,56 @@
   const authSignIn = $("#authSignIn");
   const authSignUp = $("#authSignUp");
   const authError = $("#authError");
-  const userBar = $("#userBar");
-  const userEmailEl = $("#userEmail");
-  const signOutBtn = $("#signOutBtn");
+  const headerAccountName = $("#headerAccountName");
+
+  const settingsBtn = $("#settingsBtn");
+  const iconMoon = $("#iconMoon");
+  const iconSun = $("#iconSun");
+
+  // ---- Theme ----
+  function initTheme() {
+    try {
+      const stored = localStorage.getItem("nc_ext_theme");
+      isDark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    } catch (_) { isDark = false; }
+    applyTheme();
+  }
+
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+    if (iconMoon && iconSun) {
+      iconMoon.style.display = isDark ? "none" : "";
+      iconSun.style.display = isDark ? "" : "none";
+    }
+  }
+
+  function toggleDark() {
+    isDark = !isDark;
+    try { localStorage.setItem("nc_ext_theme", isDark ? "dark" : "light"); } catch (_) {}
+    applyTheme();
+  }
+
+  initTheme();
+
+  // ---- Settings button = direct dark/light toggle ----
+  settingsBtn.addEventListener("click", () => toggleDark());
+
+  // ---- URL fingerprint (mirrors content.js) ----
+  function urlFingerprint(url) {
+    try {
+      const u = new URL(url);
+      if ((u.hostname.includes("google.") || u.hostname.includes("bing.")) && u.pathname === "/search") {
+        const q = u.searchParams.get("q");
+        return u.origin + u.pathname + (q ? "?q=" + encodeURIComponent(q) : "");
+      }
+      if (u.hostname.includes("youtube.com") || u.hostname === "youtu.be") {
+        const v = u.searchParams.get("v");
+        return u.origin + u.pathname + (v ? "?v=" + v : "");
+      }
+      const params = [...u.searchParams.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      return u.origin + u.pathname + (params.length ? "?" + params.map(([k, v]) => k + "=" + v).join("&") : "");
+    } catch { return url; }
+  }
 
   // ---- Boot ----
   loadState();
@@ -79,10 +129,12 @@
 
   function updateUserBar() {
     if (currentUser) {
-      userBar.classList.remove("hidden");
-      userEmailEl.textContent = currentUser.email || "";
+      const displayName = currentUserName || currentUser.email || "Account";
+      headerAccountName.textContent = displayName;
+      headerAccountName.title = displayName;
     } else {
-      userBar.classList.add("hidden");
+      headerAccountName.textContent = "NoteCrate";
+      headerAccountName.title = "NoteCrate";
     }
   }
 
@@ -147,19 +199,127 @@
     if (e.key === "Enter") authSignIn.click();
   });
 
-  signOutBtn.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ action: "sign-out" }, () => {
-      currentUser = null;
-      highlights = [];
-      folders = [];
-      activeFolder = null;
-      highlightingActive = false;
-      toggleBtn.classList.remove("active");
-      updateUserBar();
-      render();
-      showAuthScreen();
+  // ---- Supabase Realtime ----
+  const SUPABASE_URL = "https://jlzalpnwplpkllgfyxqz.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsemFscG53cGxwa2xsZ2Z5eHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4NjUwNTUsImV4cCI6MjA4NjQ0MTA1NX0.WFu4wmSKUOsnh1XPR5SqLoUmLx13zbfwuiS0fVFhQ6w";
+  let realtimeClient = null;
+  let realtimeChannel = null;
+  let realtimeConnected = false;
+  let pollInterval = null;
+
+  function setupRealtime(userId, accessToken) {
+    if (!window.supabase || realtimeChannel) return;
+
+    realtimeClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
     });
-  });
+
+    realtimeChannel = realtimeClient
+      .channel("public:highlights")
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "highlights",
+        filter: `user_id=eq.${userId}`,
+      }, handleHighlightChange)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "folders",
+        filter: `user_id=eq.${userId}`,
+      }, handleFolderChange)
+      .on("broadcast", { event: "custom-delete" }, (payload) => {
+        highlights = highlights.filter((h) => h.id !== payload.payload.id);
+        render();
+      })
+      .on("broadcast", { event: "custom-insert" }, (payload) => {
+        const h = payload.payload;
+        if (h && !highlights.find((x) => x.id === h.id)) {
+          highlights.unshift(h);
+          render();
+        }
+      })
+      .subscribe((status) => {
+        realtimeConnected = status === "SUBSCRIBED";
+        if (realtimeConnected) {
+          stopPoll();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          startPoll();
+        }
+      });
+
+    setTimeout(() => {
+      if (!realtimeConnected) startPoll();
+    }, 5000);
+  }
+
+  function teardownRealtime() {
+    if (realtimeClient && realtimeChannel) {
+      realtimeClient.removeChannel(realtimeChannel).catch(() => { });
+    }
+    realtimeClient = null;
+    realtimeChannel = null;
+    realtimeConnected = false;
+    stopPoll();
+  }
+
+  function startPoll() {
+    if (pollInterval) return;
+    pollInterval = setInterval(() => {
+      if (realtimeConnected) { stopPoll(); return; }
+      chrome.runtime.sendMessage({ action: "get-state" }, (result) => {
+        if (chrome.runtime.lastError || !result?.highlights) return;
+        highlights = result.highlights;
+        folders = result.folders || folders;
+        renderFolderChips();
+        render();
+      });
+    }, 15000);
+  }
+
+  function stopPoll() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  function mapHighlightRow(r) {
+    return {
+      id: r.id, text: r.text, sourceTitle: r.source_title, sourceUrl: r.source_url,
+      color: r.color, folderId: r.folder_id, createdAt: r.created_at?.split("T")[0] || "",
+      type: r.type || "text", imageUrl: r.image_url || null,
+      videoId: r.video_id || null, videoTimestamp: r.video_timestamp || null,
+    };
+  }
+
+  function mapFolderRow(r) {
+    return { id: r.id, name: r.name, parentId: r.parent_id };
+  }
+
+  function handleHighlightChange({ eventType, new: nr, old: or }) {
+    if (eventType === "INSERT") {
+      if (!highlights.find((h) => h.id === nr.id)) highlights.unshift(mapHighlightRow(nr));
+    } else if (eventType === "UPDATE") {
+      const idx = highlights.findIndex((h) => h.id === nr.id);
+      if (idx !== -1) highlights[idx] = mapHighlightRow(nr);
+    } else if (eventType === "DELETE") {
+      highlights = highlights.filter((h) => h.id !== or.id);
+    }
+    render();
+  }
+
+  function handleFolderChange({ eventType, new: nr, old: or }) {
+    if (eventType === "INSERT") {
+      if (!folders.find((f) => f.id === nr.id)) folders.push(mapFolderRow(nr));
+    } else if (eventType === "UPDATE") {
+      const idx = folders.findIndex((f) => f.id === nr.id);
+      if (idx !== -1) folders[idx] = mapFolderRow(nr);
+    } else if (eventType === "DELETE") {
+      folders = folders.filter((f) => f.id !== or.id);
+      activeFolderIds = activeFolderIds.filter((id) => id !== or.id);
+      if (activeFolderIds.length === 0 && folders.length > 0) {
+        activeFolderIds = [folders[0].id];
+        chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
+      }
+    }
+    renderFolderChips();
+    render();
+  }
 
   // ---- Load state from background ----
 
@@ -177,13 +337,20 @@
         return;
       }
 
+      currentUserName = result.userName || null;
       hideAuthScreen();
       updateUserBar();
 
       highlights = result.highlights || [];
       folders = result.folders || [];
       activeColor = result.activeColor || "yellow";
-      activeFolder = result.activeFolder || null;
+      // Migrate single activeFolder → activeFolderIds array
+      const prevActive = result.activeFolder;
+      if (prevActive && !activeFolderIds.includes(prevActive)) {
+        activeFolderIds = [prevActive];
+      } else if (activeFolderIds.length === 0 && folders.length > 0) {
+        activeFolderIds = [folders[0].id];
+      }
       highlightingActive = result.highlightingActive || false;
 
       toggleBtn.classList.toggle("active", highlightingActive);
@@ -192,28 +359,98 @@
         btn.classList.toggle("active", btn.dataset.color === activeColor);
       });
 
-      populateFolders();
-      if (activeFolder) folderSelect.value = activeFolder;
-
+      renderFolderChips();
       detectCurrentPage();
       render();
+
+      chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
+        if (res?.accessToken) {
+          setupRealtime(currentUser.id, res.accessToken);
+        }
+      });
     });
   }
 
-  function populateFolders() {
-    folderSelect.innerHTML = "";
+  // ---- Folder list (multi-select rows) ----
+  function renderFolderChips() {
+    folderList.innerHTML = "";
+
     if (folders.length === 0) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "No folders yet";
-      folderSelect.appendChild(opt);
+      folderList.innerHTML = '<span class="folder-empty-state">No folders yet</span>';
+      updateParentFolderSelect();
       return;
     }
-    folders.forEach((f) => {
+
+    const roots = folders.filter((f) => !f.parentId);
+    const children = folders.filter((f) => f.parentId);
+    const counts = {};
+    highlights.forEach((h) => {
+      counts[h.folderId] = (counts[h.folderId] || 0) + 1;
+    });
+
+    const ordered = [];
+    roots.forEach((root) => {
+      ordered.push({ folder: root, isChild: false });
+      children.filter((c) => c.parentId === root.id).forEach((child) => {
+        ordered.push({ folder: child, isChild: true });
+      });
+    });
+    // Orphaned children
+    children.filter((c) => !roots.find((r) => r.id === c.parentId)).forEach((child) => {
+      ordered.push({ folder: child, isChild: true });
+    });
+
+    ordered.forEach(({ folder, isChild }) => {
+      const selected = activeFolderIds.includes(folder.id);
+      const row = document.createElement("button");
+      row.className = "folder-row-item" + (isChild ? " child" : "") + (selected ? " selected" : "");
+      row.dataset.id = folder.id;
+
+      const icon = document.createElement("span");
+      icon.className = "frow-icon";
+      icon.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`;
+      row.appendChild(icon);
+
+      const name = document.createElement("span");
+      name.className = "frow-name";
+      name.textContent = folder.name;
+      row.appendChild(name);
+
+      const count = document.createElement("span");
+      count.className = "frow-count";
+      count.textContent = String(counts[folder.id] || 0);
+      row.appendChild(count);
+
+      row.addEventListener("click", () => toggleFolder(folder.id));
+      folderList.appendChild(row);
+    });
+
+    updateParentFolderSelect();
+  }
+
+  function toggleFolder(folderId) {
+    if (activeFolderIds.includes(folderId)) {
+      // Deselect only if there's more than one selected
+      if (activeFolderIds.length > 1) {
+        activeFolderIds = activeFolderIds.filter((id) => id !== folderId);
+      }
+    } else {
+      activeFolderIds = [...activeFolderIds, folderId];
+    }
+    // Persist primary (first) active folder for backwards compat with background save
+    chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
+    renderFolderChips();
+    render();
+  }
+
+  function updateParentFolderSelect() {
+    parentFolderSelect.innerHTML = '<option value="">— None (root folder) —</option>';
+    const roots = folders.filter((f) => !f.parentId);
+    roots.forEach((f) => {
       const opt = document.createElement("option");
       opt.value = f.id;
       opt.textContent = f.name;
-      folderSelect.appendChild(opt);
+      parentFolderSelect.appendChild(opt);
     });
   }
 
@@ -255,28 +492,55 @@
   // ---- Render ----
 
   function render() {
-    const list = currentTab === "page"
-      ? highlights.filter((h) => h.sourceUrl === currentPageUrl)
-      : highlights;
+    const pageFingerprint = urlFingerprint(currentPageUrl);
+    const pageList = highlights.filter(
+      (h) => h.sourceUrl && urlFingerprint(h.sourceUrl) === pageFingerprint
+    );
 
-    highlightTabCount.textContent = highlights.length;
-    pageTabCount.textContent = highlights.filter((h) => h.sourceUrl === currentPageUrl).length;
+    // "Folder" tab: show 5 latest from selected folder(s)
+    let folderList_h;
+    if (activeFolderIds.length > 0) {
+      folderList_h = highlights.filter((h) => activeFolderIds.includes(h.folderId));
+    } else {
+      folderList_h = highlights;
+    }
+    const folderListTop5 = folderList_h.slice(0, 5);
+    const folderTotal = folderList_h.length;
+
+    const list = currentTab === "page" ? pageList : folderListTop5;
+
+    highlightTabCount.textContent = folderTotal;
+    pageTabCount.textContent = pageList.length;
 
     if (!list.length) {
       content.innerHTML = `
         <div class="empty">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
             <path d="m9 11-6 6v3h9l3-3"/>
             <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
           </svg>
-          <p>${currentTab === "page" ? "No highlights on this page" : "No highlights yet"}</p>
+          <p>${currentTab === "page" ? "No highlights on this page" : "No highlights in this folder"}</p>
           <p class="sub">Select text on any page to save</p>
         </div>
       `;
       return;
     }
 
-    content.innerHTML = list.map(cardHtml).join("");
+    let html = list.map(cardHtml).join("");
+
+    // Add "See all in dashboard" if there are more than 5
+    if (currentTab === "highlights" && folderTotal > 5) {
+      html += `
+        <div class="see-all-row">
+          <button class="see-all-btn" id="seeAllBtn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            See all ${folderTotal} in dashboard
+          </button>
+        </div>
+      `;
+    }
+
+    content.innerHTML = html;
 
     content.querySelectorAll(".h-delete").forEach((btn) => {
       btn.addEventListener("click", (e) => {
@@ -286,10 +550,18 @@
           if (res?.success !== false) {
             highlights = highlights.filter((h) => h.id !== id);
             render();
+            if (realtimeChannel && realtimeConnected) {
+              realtimeChannel.send({ type: "broadcast", event: "custom-delete", payload: { id } });
+            }
           }
         });
       });
     });
+
+    const seeAllBtn = $("#seeAllBtn");
+    if (seeAllBtn) {
+      seeAllBtn.addEventListener("click", () => openWithTokens("dashboard"));
+    }
   }
 
   function cardHtml(h) {
@@ -302,7 +574,7 @@
     if (isVideo) {
       body += `
         <div class="h-video-badge">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           ${h.videoTimestamp || "0:00"}
         </div>
       `;
@@ -319,7 +591,7 @@
           </div>
         </div>
         <button class="h-delete" data-id="${h.id}" title="Delete">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
@@ -339,12 +611,23 @@
     if (!t) {
       t = document.createElement("div");
       t.id = "sp-toast";
-      t.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0a0a0a;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:9999;opacity:0;transition:opacity 0.2s;white-space:nowrap;pointer-events:none";
+      t.style.cssText = "position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-fg);font-size:12px;padding:7px 14px;border-radius:8px;z-index:9999;opacity:0;transition:opacity 0.18s;white-space:nowrap;pointer-events:none;font-family:inherit";
       document.body.appendChild(t);
     }
     t.textContent = text;
     t.style.opacity = "1";
     setTimeout(() => { t.style.opacity = "0"; }, 2500);
+  }
+
+  function openWithTokens(path) {
+    chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
+      if (res?.accessToken && res?.refreshToken) {
+        const url = `http://localhost:3000/auth/extension#access_token=${encodeURIComponent(res.accessToken)}&refresh_token=${encodeURIComponent(res.refreshToken)}&type=recovery&next=/${path}`;
+        chrome.tabs.create({ url });
+      } else {
+        chrome.tabs.create({ url: `http://localhost:3000/${path}` });
+      }
+    });
   }
 
   // ---- Events ----
@@ -364,11 +647,6 @@
     });
   });
 
-  folderSelect.addEventListener("change", () => {
-    activeFolder = folderSelect.value;
-    chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolder });
-  });
-
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       tabs.forEach((t) => t.classList.remove("active"));
@@ -378,27 +656,18 @@
     });
   });
 
-  openAppBtn.addEventListener("click", () => {
-    // Pass session tokens so the web app can log in automatically
-    chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
-      if (res?.accessToken && res?.refreshToken) {
-        const url = `http://localhost:3000/auth/extension#access_token=${encodeURIComponent(res.accessToken)}&refresh_token=${encodeURIComponent(res.refreshToken)}&type=recovery`;
-        chrome.tabs.create({ url });
-      } else {
-        chrome.tabs.create({ url: "http://localhost:3000/dashboard" });
-      }
-    });
-  });
+  openAppBtn.addEventListener("click", () => openWithTokens("dashboard"));
 
   saveClipBtn.addEventListener("click", () => {
+    saveClipBtn.disabled = true;
     chrome.tabs.query({ active: true, currentWindow: true }, (tabList) => {
-      if (!tabList?.[0]) return;
+      if (!tabList?.[0]) { saveClipBtn.disabled = false; return; }
       const tab = tabList[0];
-      chrome.tabs.sendMessage(tab.id, { action: "get-yt-time" }, (response) => {
-        const timestamp = response?.timestamp || "0:00";
+
+      const fallbackTs = ytTime?.textContent || "0:00";
+      function doSaveClip(timestamp) {
         const videoId = extractYouTubeId(tab.url);
         const title = (tab.title || "").replace(" - YouTube", "").trim();
-
         chrome.runtime.sendMessage({
           action: "save-highlight",
           data: {
@@ -409,7 +678,18 @@
             videoId,
             videoTimestamp: timestamp,
           },
+        }, (res) => {
+          saveClipBtn.disabled = false;
+          if (res?.success) showToastMsg("Clip saved ✓");
         });
+      }
+
+      chrome.tabs.sendMessage(tab.id, { action: "get-yt-time" }, (response) => {
+        if (chrome.runtime.lastError || !response?.timestamp) {
+          doSaveClip(fallbackTs);
+        } else {
+          doSaveClip(response.timestamp);
+        }
       });
     });
   });
@@ -417,6 +697,7 @@
   newFolderBtn.addEventListener("click", () => {
     newFolderDialog.classList.remove("hidden");
     newFolderInput.value = "";
+    updateParentFolderSelect();
     newFolderInput.focus();
   });
 
@@ -425,13 +706,17 @@
   confirmFolder.addEventListener("click", () => {
     const name = newFolderInput.value.trim();
     if (!name) return;
-    chrome.runtime.sendMessage({ action: "create-folder", name }, (response) => {
-      if (response?.success) {
+    const parentId = parentFolderSelect.value || null;
+    confirmFolder.disabled = true;
+    chrome.runtime.sendMessage({ action: "create-folder", name, parentId }, (response) => {
+      confirmFolder.disabled = false;
+      if (response?.success && response.folder) {
         folders.push(response.folder);
-        populateFolders();
-        folderSelect.value = response.folder.id;
-        activeFolder = response.folder.id;
-        chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolder });
+        // Auto-select the new folder
+        activeFolderIds = [...activeFolderIds, response.folder.id];
+        chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
+        renderFolderChips();
+        render();
       }
       newFolderDialog.classList.add("hidden");
     });

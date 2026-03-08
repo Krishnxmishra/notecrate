@@ -4,11 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@font-face {
-  font-family: 'Instrument Sans';
-  src: url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -94,6 +89,35 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+.dark {
+  --background: oklch(0.12 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.16 0 0);
+  --card-foreground: oklch(0.93 0 0);
+  --popover: oklch(0.16 0 0);
+  --popover-foreground: oklch(0.93 0 0);
+  --primary: oklch(0.93 0 0);
+  --primary-foreground: oklch(0.12 0 0);
+  --secondary: oklch(0.22 0 0);
+  --secondary-foreground: oklch(0.93 0 0);
+  --muted: oklch(0.20 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.22 0 0);
+  --accent-foreground: oklch(0.93 0 0);
+  --destructive: oklch(0.55 0.22 27);
+  --border: oklch(0.25 0 0);
+  --input: oklch(0.25 0 0);
+  --ring: oklch(0.55 0 0);
+  --sidebar: oklch(0.13 0 0);
+  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar-primary: oklch(0.93 0 0);
+  --sidebar-primary-foreground: oklch(0.12 0 0);
+  --sidebar-accent: oklch(0.20 0 0);
+  --sidebar-accent-foreground: oklch(0.93 0 0);
+  --sidebar-border: oklch(0.22 0 0);
+  --sidebar-ring: oklch(0.40 0 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -113,6 +137,32 @@
   .highlight-green { background-color: var(--color-highlight-green); }
   .highlight-orange { background-color: var(--color-highlight-orange); }
 }
+
+/* Highlight card font scale */
+:root,
+:root[data-font-size="medium"] {
+  --hc-text: 13.5px;
+  --hc-lh: 1.7;
+  --hc-meta: 11px;
+  --hc-source: 11px;
+}
+:root[data-font-size="small"] {
+  --hc-text: 12.5px;
+  --hc-lh: 1.65;
+  --hc-meta: 10.5px;
+  --hc-source: 10.5px;
+}
+:root[data-font-size="large"] {
+  --hc-text: 16.5px;
+  --hc-lh: 1.75;
+  --hc-meta: 13px;
+  --hc-source: 13px;
+}
+
+.hc-text   { font-size: var(--hc-text)   !important; line-height: var(--hc-lh) !important; }
+.hc-source { font-size: var(--hc-source) !important; }
+.hc-meta   { font-size: var(--hc-meta)   !important; }
+
 
 ::selection {
   background-color: oklch(0.13 0 0);

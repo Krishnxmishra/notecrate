@@ -8,10 +8,13 @@ import { ArrowLeft } from "lucide-react";
 
 export default async function StudioPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tool?: string }>;
 }) {
   const { id } = await params;
+  const { tool } = await searchParams;
   const [folder, highlights] = await Promise.all([
     getFolderById(id),
     getHighlightsByFolder(id),
@@ -21,8 +24,8 @@ export default async function StudioPage({
     return (
       <AppShell>
         <TopNav title="Studio" subtitle="Folder not found" />
-        <div className="flex flex-1 items-center justify-center bg-[#fbfbfb]">
-          <p className="text-neutral-400">This folder does not exist.</p>
+        <div className="flex flex-1 items-center justify-center bg-[#fbfbfb] dark:bg-neutral-950">
+          <p className="text-neutral-400 dark:text-neutral-500">This folder does not exist.</p>
         </div>
       </AppShell>
     );
@@ -31,7 +34,7 @@ export default async function StudioPage({
   return (
     <AppShell>
       <TopNav
-        title="Upload to Claude"
+        title={`Export for ${tool === "chatgpt" ? "ChatGPT" : tool === "gemini" ? "Gemini" : "Claude"}`}
         subtitle={folder.name}
         actions={
           <Link href={`/folder/${folder.id}`}>
@@ -46,7 +49,7 @@ export default async function StudioPage({
           </Link>
         }
       />
-      <StudioView folder={folder} highlights={highlights} />
+      <StudioView folder={folder} highlights={highlights} tool={tool ?? "claude"} />
     </AppShell>
   );
 }

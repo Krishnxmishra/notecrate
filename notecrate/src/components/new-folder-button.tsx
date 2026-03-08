@@ -35,16 +35,16 @@ export function NewFolderButton({ parentId = null, label = "New folder" }: Props
     <>
       <button
         onClick={openDialog}
-        className="flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-[12px] font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+        className="flex items-center gap-1.5 rounded-md border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-1.5 text-[12px] font-medium text-neutral-700 dark:text-neutral-300 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800"
       >
         <FolderPlus className="h-3.5 w-3.5" />
         {label}
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-[320px] rounded-xl border border-neutral-200 bg-white p-5 shadow-xl">
-            <h3 className="mb-3 text-[14px] font-semibold text-neutral-900">New folder</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-[320px] rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-5 shadow-xl">
+            <h3 className="mb-3 text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">New folder</h3>
             <input
               ref={inputRef}
               value={name}
@@ -54,19 +54,19 @@ export function NewFolderButton({ parentId = null, label = "New folder" }: Props
                 if (e.key === "Escape") setOpen(false);
               }}
               placeholder="Folder name"
-              className="mb-4 w-full rounded-lg border border-neutral-200 px-3 py-2 text-[13px] text-neutral-900 outline-none focus:border-neutral-400"
+              className="mb-4 w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-[13px] text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 outline-none focus:border-neutral-400 dark:focus:border-neutral-500"
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 hover:text-neutral-700"
+                className="rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
               >
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={isPending || !name.trim()}
-                className="rounded-md bg-neutral-900 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-md bg-neutral-900 dark:bg-neutral-100 px-3 py-1.5 text-[12px] font-medium text-white dark:text-neutral-900 transition-colors hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50"
               >
                 {isPending ? "Creating…" : "Create"}
               </button>

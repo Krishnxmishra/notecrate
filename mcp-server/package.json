@@ -1,0 +1,14 @@
+{
+  "name": "notecrate-mcp-server",
+  "version": "1.0.0",
+  "description": "NoteCrate MCP server — lets Claude read your highlights and folders",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --experimental-vm-modules tests/server.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
