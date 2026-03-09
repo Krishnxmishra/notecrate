@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
@@ -22,10 +22,21 @@ function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [exchanging, setExchanging] = useState(true);
   const [done, setDone] = useState(false);
+  const hasVerifiedRef = useRef(false);
 
   useEffect(() => {
+    if (hasVerifiedRef.current) return;
+    hasVerifiedRef.current = true;
+
     async function verifyResetLink() {
       const supabase = createClient();
+
+      // If Supabase already parsed the URL and created a session, don't re-exchange one-time tokens.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session) {
+        setExchanging(false);
+        return;
+      }
 
       // Supabase may redirect with access/refresh tokens in the URL hash.
       const hash = window.location.hash.slice(1);
@@ -46,7 +57,12 @@ function ResetPassword() {
       const code = searchParams.get("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) setError("Invalid or expired reset link.");
+        if (error) {
+          const { data: retrySessionData } = await supabase.auth.getSession();
+          if (!retrySessionData.session) {
+            setError("Invalid or expired reset link.");
+          }
+        }
         setExchanging(false);
         return;
       }
