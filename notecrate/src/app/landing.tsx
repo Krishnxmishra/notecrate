@@ -270,6 +270,11 @@ export function Landing() {
         <p className="text-[12px] text-neutral-400">
           &copy; {new Date().getFullYear()} NoteCrate. Free during beta.
         </p>
+        <p className="mt-2 text-[12px]">
+          <Link href="/privacy" className="text-neutral-400 hover:text-neutral-600">
+            Privacy Policy
+          </Link>
+        </p>
       </footer>
     </div>
   );

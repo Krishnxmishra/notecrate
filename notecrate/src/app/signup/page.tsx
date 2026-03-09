@@ -13,7 +13,23 @@ export default function Signup() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (authError) {
+      setError(authError.message);
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +76,27 @@ export default function Signup() {
             <>
               <h1 className="mb-1 text-[18px] font-semibold tracking-tight text-neutral-900">Create account</h1>
               <p className="mb-6 text-[13px] text-neutral-500">Free during beta. No credit card needed.</p>
+
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+                className="mb-4 flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-200 bg-white py-2.5 text-[13px] font-medium text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-60"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15.68 8.18c0-.57-.05-1.12-.14-1.64H8v3.1h4.3a3.68 3.68 0 0 1-1.6 2.42v2h2.58c1.51-1.39 2.4-3.44 2.4-5.88z" fill="#4285F4"/>
+                  <path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.58-2a4.8 4.8 0 0 1-2.72.75 4.79 4.79 0 0 1-4.51-3.32H.83v2.07A8 8 0 0 0 8 16z" fill="#34A853"/>
+                  <path d="M3.49 9.49A4.83 4.83 0 0 1 3.24 8c0-.52.09-1.02.25-1.49V4.44H.83A8 8 0 0 0 0 8c0 1.29.31 2.51.83 3.56l2.66-2.07z" fill="#FBBC05"/>
+                  <path d="M8 3.2a4.33 4.33 0 0 1 3.07 1.2l2.3-2.3A7.7 7.7 0 0 0 8 0 8 8 0 0 0 .83 4.44L3.49 6.51A4.79 4.79 0 0 1 8 3.2z" fill="#EA4335"/>
+                </svg>
+                {googleLoading ? "Redirecting…" : "Continue with Google"}
+              </button>
+
+              <div className="mb-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-neutral-200" />
+                <span className="text-[11px] text-neutral-400">or</span>
+                <div className="h-px flex-1 bg-neutral-200" />
+              </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
@@ -128,6 +165,11 @@ export default function Signup() {
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-neutral-900 hover:underline">
             Sign in
+          </Link>
+        </p>
+        <p className="mt-3 text-center text-[12px] text-neutral-400">
+          <Link href="/privacy" className="hover:text-neutral-600">
+            Privacy Policy
           </Link>
         </p>
       </div>

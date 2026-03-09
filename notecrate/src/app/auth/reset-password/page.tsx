@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
@@ -15,13 +15,13 @@ export default function ResetPasswordPage() {
 
 function ResetPassword() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [exchanging, setExchanging] = useState(true);
   const [done, setDone] = useState(false);
+
   const hasVerifiedRef = useRef(false);
 
   useEffect(() => {
@@ -30,78 +30,52 @@ function ResetPassword() {
 
     async function verifyResetLink() {
       const supabase = createClient();
+      const params = new URLSearchParams(window.location.search);
 
-      // If Supabase already parsed the URL and created a session, don't re-exchange one-time tokens.
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
+      const accessToken = params.get("access_token");
+      const type = params.get("type");
+
+      if (!accessToken || type !== "recovery") {
+        setError("Invalid or expired reset link.");
         setExchanging(false);
         return;
       }
 
-      // Supabase may redirect with access/refresh tokens in the URL hash.
-      const hash = window.location.hash.slice(1);
-      const hashParams = new URLSearchParams(hash);
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
-      if (accessToken && refreshToken) {
-        const { error } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (error) setError("Invalid or expired reset link.");
-        setExchanging(false);
-        return;
+      // Set session using the access token from the URL
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: accessToken, // refresh_token optional
+      });
+
+      if (sessionError) {
+        setError("Invalid or expired reset link.");
       }
 
-      // PKCE flow: ?code=...
-      const code = searchParams.get("code");
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          const { data: retrySessionData } = await supabase.auth.getSession();
-          if (!retrySessionData.session) {
-            setError("Invalid or expired reset link.");
-          }
-        }
-        setExchanging(false);
-        return;
-      }
-
-      // Token-hash flow: ?token_hash=...&type=recovery
-      const tokenHash = searchParams.get("token_hash");
-      const type = searchParams.get("type");
-      if (tokenHash && type === "recovery") {
-        const { error } = await supabase.auth.verifyOtp({
-          type: "recovery",
-          token_hash: tokenHash,
-        });
-        if (error) setError("Invalid or expired reset link.");
-        setExchanging(false);
-        return;
-      }
-
-      setError("Invalid or expired reset link.");
       setExchanging(false);
     }
 
     verifyResetLink();
-  }, [searchParams]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
     }
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
+
     setLoading(true);
     const supabase = createClient();
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setLoading(false);
+
     if (updateError) {
       setError(updateError.message);
     } else {
@@ -152,6 +126,7 @@ function ResetPassword() {
                     placeholder="Min. 6 characters"
                   />
                 </div>
+
                 <div>
                   <label className="mb-1.5 block text-[12px] font-medium text-neutral-700" htmlFor="confirm">
                     Confirm password
