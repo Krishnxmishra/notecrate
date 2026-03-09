@@ -5,6 +5,10 @@ const PROTECTED = ["/dashboard", "/folder", "/search", "/studio"];
 const AUTH_PAGES = ["/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
 
   let response = NextResponse.next({ request });
