@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const PROTECTED = ["/dashboard", "/folder", "/search", "/studio"];
 const AUTH_PAGES = ["/login", "/signup"];
+const PUBLIC_PATHS = ["/auth", "/forgot-password"];
 
 export async function middleware(request: NextRequest) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

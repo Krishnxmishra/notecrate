@@ -24,18 +24,51 @@ function ResetPassword() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Supabase sends ?code=... when using PKCE flow
-    const code = searchParams.get("code");
-    if (!code) {
+    async function verifyResetLink() {
+      const supabase = createClient();
+
+      // Supabase may redirect with access/refresh tokens in the URL hash.
+      const hash = window.location.hash.slice(1);
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) setError("Invalid or expired reset link.");
+        setExchanging(false);
+        return;
+      }
+
+      // PKCE flow: ?code=...
+      const code = searchParams.get("code");
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) setError("Invalid or expired reset link.");
+        setExchanging(false);
+        return;
+      }
+
+      // Token-hash flow: ?token_hash=...&type=recovery
+      const tokenHash = searchParams.get("token_hash");
+      const type = searchParams.get("type");
+      if (tokenHash && type === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        if (error) setError("Invalid or expired reset link.");
+        setExchanging(false);
+        return;
+      }
+
       setError("Invalid or expired reset link.");
       setExchanging(false);
-      return;
     }
-    const supabase = createClient();
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) setError("Invalid or expired reset link.");
-      setExchanging(false);
-    });
+
+    verifyResetLink();
   }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
