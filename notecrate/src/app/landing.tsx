@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Highlighter,
   FolderClosed,
   Bot,
   Youtube,
@@ -12,6 +11,7 @@ import {
   FlaskConical,
   Home,
   Briefcase,
+  Highlighter,
 } from "lucide-react";
 
 const FEATURES = [
@@ -95,10 +95,9 @@ export function Landing() {
       <header className="sticky top-0 z-50 border-b border-neutral-100 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900">
-              <Highlighter className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight text-neutral-900">NoteCrate</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-light.png" alt="NoteCrate" width={28} height={28} className="rounded-md" style={{ width: 28, height: 28, objectFit: "contain" }} />
+            <span className="text-[17px] font-semibold tracking-tight text-neutral-900">NoteCrate</span>
           </div>
           <nav className="flex items-center gap-1">
             <Link
@@ -264,10 +263,9 @@ export function Landing() {
       {/* Footer */}
       <footer className="border-t border-neutral-100 py-8 text-center">
         <div className="flex items-center justify-center gap-2 mb-3">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900">
-            <Highlighter className="h-3 w-3 text-white" />
-          </div>
-          <span className="text-[13px] font-semibold text-neutral-900">NoteCrate</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-light.png" alt="NoteCrate" width={22} height={22} className="rounded-sm" style={{ width: 22, height: 22, objectFit: "contain" }} />
+          <span className="text-[16px] font-semibold text-neutral-900">NoteCrate</span>
         </div>
         <p className="text-[12px] text-neutral-400">
           &copy; {new Date().getFullYear()} NoteCrate. Free during beta.

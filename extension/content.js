@@ -537,6 +537,36 @@
       sendResponse({ timestamp: v ? fmt(Math.floor(v.currentTime)) : "0:00" });
       return true;
     }
+    if (msg.action === "seek-yt" && msg.timestamp) {
+      const v = document.querySelector("video");
+      if (v) {
+        const parts = msg.timestamp.split(":").map(Number);
+        const secs = parts.length === 3
+          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+          : parts.length === 2
+          ? parts[0] * 60 + parts[1]
+          : parts[0];
+        v.currentTime = secs;
+        v.play().catch(() => {});
+      }
+      sendResponse({ success: true });
+      return true;
+    }
+    if (msg.action === "scroll-to-highlight" && msg.id) {
+      const marks = Array.from(document.querySelectorAll(`.notecrate-mark[data-nc-id="${msg.id}"]`));
+      if (marks.length > 0) {
+        marks[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        // Brief flash to show which highlight was jumped to
+        marks.forEach((m) => {
+          m.style.transition = "outline 0.1s";
+          m.style.outline = "2px solid rgba(251,191,36,0.8)";
+          m.style.borderRadius = "2px";
+          setTimeout(() => { m.style.outline = ""; }, 1200);
+        });
+      }
+      sendResponse({ success: true });
+      return true;
+    }
     if (msg.action === "reinject-single" && msg.highlight) {
       cachedHighlights.push(msg.highlight);
       if (document.readyState === "loading") {

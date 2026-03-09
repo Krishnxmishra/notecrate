@@ -2,77 +2,38 @@
 <html>
 <head><title>Generate NoteCrate Icons</title></head>
 <body>
-  <p>Right-click each canvas and "Save image as" to save the icons.</p>
+  <p>Open this file from the <code>extension/icons/</code> folder. Right-click each canvas and "Save image as" to save the icons, or click the download links.</p>
   <div id="icons"></div>
   <script>
     const sizes = [16, 32, 48, 128];
     const container = document.getElementById("icons");
 
-    sizes.forEach((size) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.src = "../../image (3).png";
+    img.onload = () => {
+      sizes.forEach((size) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, size, size);
 
-      // Background
-      const r = size * 0.18;
-      ctx.beginPath();
-      ctx.roundRect(0, 0, size, size, r);
-      ctx.fillStyle = "#0a0a0a";
-      ctx.fill();
+        const label = document.createElement("div");
+        label.style.margin = "12px 0";
+        label.innerHTML = `<strong>icon${size}.png</strong><br>`;
+        label.appendChild(canvas);
+        container.appendChild(label);
 
-      // Book icon (simplified)
-      const pad = size * 0.22;
-      const w = size - pad * 2;
-      const h = size - pad * 2;
-      const cx = size / 2;
-      const cy = size / 2;
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = Math.max(1.5, size * 0.06);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-
-      // Left page
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - h * 0.4);
-      ctx.lineTo(cx - w * 0.42, cy - h * 0.35);
-      ctx.lineTo(cx - w * 0.42, cy + h * 0.4);
-      ctx.lineTo(cx, cy + h * 0.45);
-      ctx.stroke();
-
-      // Right page
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - h * 0.4);
-      ctx.lineTo(cx + w * 0.42, cy - h * 0.35);
-      ctx.lineTo(cx + w * 0.42, cy + h * 0.4);
-      ctx.lineTo(cx, cy + h * 0.45);
-      ctx.stroke();
-
-      // Spine
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - h * 0.4);
-      ctx.lineTo(cx, cy + h * 0.45);
-      ctx.stroke();
-
-      // Highlight mark
-      const markY = cy - h * 0.05;
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillRect(cx + w * 0.08, markY, w * 0.25, size * 0.07);
-
-      const label = document.createElement("div");
-      label.style.margin = "12px 0";
-      label.innerHTML = `<strong>icon${size}.png</strong><br>`;
-      label.appendChild(canvas);
-      container.appendChild(label);
-
-      // Auto-download
-      const link = document.createElement("a");
-      link.download = `icon${size}.png`;
-      link.href = canvas.toDataURL();
-      link.textContent = ` [Download icon${size}.png]`;
-      label.appendChild(link);
-    });
+        const link = document.createElement("a");
+        link.download = `icon${size}.png`;
+        link.href = canvas.toDataURL();
+        link.textContent = ` [Download icon${size}.png]`;
+        label.appendChild(link);
+      });
+    };
+    img.onerror = () => {
+      document.body.innerHTML += "<p style='color:red'>Could not load logo image. Make sure image (2).png exists two directories up.</p>";
+    };
   </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Highlighter } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Login() {
@@ -33,9 +33,7 @@ export default function Login() {
       <div className="w-full max-w-[360px]">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900">
-            <Highlighter className="h-5 w-5 text-white" />
-          </div>
+          <Logo size={40} variant="light" />
           <span className="text-[16px] font-semibold tracking-tight text-neutral-900">NoteCrate</span>
         </div>
 
