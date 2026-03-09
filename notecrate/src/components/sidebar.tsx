@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/logo";
 import { usePathname, useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -269,10 +270,8 @@ export function Sidebar({ tree, userEmail }: SidebarProps) {
       >
         <div className="flex h-[52px] items-center px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-[22px] w-[22px] items-center justify-center rounded bg-neutral-900 dark:bg-white">
-              <span className="text-[10px] font-bold leading-none text-white dark:text-neutral-900">N</span>
-            </div>
-            <span className="text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 dark:text-neutral-100">
+            <Logo size={22} />
+            <span className="text-[16px] font-semibold tracking-[-0.01em] text-neutral-900 dark:text-neutral-100">
               NoteCrate
             </span>
           </Link>

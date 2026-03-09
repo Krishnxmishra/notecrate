@@ -11,6 +11,10 @@
   let currentUser = null;
   let currentUserName = null;
   let isDark = false;
+  // Folder tree state
+  let folderSearchQuery = "";
+  let collapsedFolderIds = new Set(); // root IDs that are collapsed
+  let contextMenuFolderId = null;
 
   // ---- Elements ----
   const $ = (sel) => document.querySelector(sel);
@@ -46,6 +50,18 @@
   const iconMoon = $("#iconMoon");
   const iconSun = $("#iconSun");
 
+  // New toolbar elements
+  const clearAllBtn = $("#clearAllBtn");
+  const saveToCount = $("#saveToCount");
+  const folderSearchInput = $("#folderSearchInput");
+  const folderSearchClear = $("#folderSearchClear");
+  const folderZone = $("#folderZone");
+  const folderCountText = $("#folderCountText");
+  const folderContextMenu = $("#folderContextMenu");
+  const ctxSelect = $("#ctxSelect");
+  const ctxRename = $("#ctxRename");
+  const ctxDelete = $("#ctxDelete");
+
   // ---- Theme ----
   function initTheme() {
     try {
@@ -61,12 +77,16 @@
       iconMoon.style.display = isDark ? "none" : "";
       iconSun.style.display = isDark ? "" : "none";
     }
+    const logoSrc = isDark ? "icons/logo-dark.png" : "icons/logo-light.png";
+    const authLogo = document.getElementById("authLogoImg");
+    if (authLogo) authLogo.src = logoSrc;
   }
 
   function toggleDark() {
     isDark = !isDark;
     try { localStorage.setItem("nc_ext_theme", isDark ? "dark" : "light"); } catch (_) {}
     applyTheme();
+    applyColorSwatchSelection(activeColor);
   }
 
   initTheme();
@@ -129,8 +149,10 @@
 
   function updateUserBar() {
     if (currentUser) {
-      const displayName = currentUserName || currentUser.email || "Account";
-      headerAccountName.textContent = displayName;
+      const displayName = currentUserName || currentUser.email?.split("@")[0] || "there";
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+      headerAccountName.textContent = `${greeting}, ${displayName}`;
       headerAccountName.title = displayName;
     } else {
       headerAccountName.textContent = "NoteCrate";
@@ -304,7 +326,7 @@
   }
 
   function handleFolderChange({ eventType, new: nr, old: or }) {
-    if (eventType === "INSERT") {
+if (eventType === "INSERT") {
       if (!folders.find((f) => f.id === nr.id)) folders.push(mapFolderRow(nr));
     } else if (eventType === "UPDATE") {
       const idx = folders.findIndex((f) => f.id === nr.id);
@@ -354,10 +376,9 @@
       highlightingActive = result.highlightingActive || false;
 
       toggleBtn.classList.toggle("active", highlightingActive);
-
-      colorBtns.forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.color === activeColor);
-      });
+      if (highlightingActive) toggleBtn.classList.add("glow");
+      applyColorSwatchSelection(activeColor);
+      applyColorToToggle(activeColor);
 
       renderFolderChips();
       detectCurrentPage();
@@ -371,39 +392,37 @@
     });
   }
 
-  // ---- Folder list (multi-select rows) ----
+  // ---- Folder list (selected-only chips) ----
   function renderFolderChips() {
     folderList.innerHTML = "";
+
+    // Update count badge + clear-all visibility
+    const n = activeFolderIds.length;
+    if (saveToCount) saveToCount.textContent = n > 0 ? String(n) : "";
+    if (clearAllBtn) clearAllBtn.style.display = n >= 2 ? "" : "none";
 
     if (folders.length === 0) {
       folderList.innerHTML = '<span class="folder-empty-state">No folders yet</span>';
       updateParentFolderSelect();
+      renderFolderZone();
       return;
     }
 
-    const roots = folders.filter((f) => !f.parentId);
-    const children = folders.filter((f) => f.parentId);
-    const counts = {};
-    highlights.forEach((h) => {
-      counts[h.folderId] = (counts[h.folderId] || 0) + 1;
-    });
+    // Only show SELECTED folders as chips
+    const selectedFolders = activeFolderIds
+      .map((id) => folders.find((f) => f.id === id))
+      .filter(Boolean);
 
-    const ordered = [];
-    roots.forEach((root) => {
-      ordered.push({ folder: root, isChild: false });
-      children.filter((c) => c.parentId === root.id).forEach((child) => {
-        ordered.push({ folder: child, isChild: true });
-      });
-    });
-    // Orphaned children
-    children.filter((c) => !roots.find((r) => r.id === c.parentId)).forEach((child) => {
-      ordered.push({ folder: child, isChild: true });
-    });
+    if (selectedFolders.length === 0) {
+      folderList.innerHTML = '<span class="folder-empty-state">Pick a folder below</span>';
+      updateParentFolderSelect();
+      renderFolderZone();
+      return;
+    }
 
-    ordered.forEach(({ folder, isChild }) => {
-      const selected = activeFolderIds.includes(folder.id);
+    selectedFolders.forEach((folder) => {
       const row = document.createElement("button");
-      row.className = "folder-row-item" + (isChild ? " child" : "") + (selected ? " selected" : "");
+      row.className = "folder-row-item selected";
       row.dataset.id = folder.id;
 
       const icon = document.createElement("span");
@@ -416,31 +435,392 @@
       name.textContent = folder.name;
       row.appendChild(name);
 
-      const count = document.createElement("span");
-      count.className = "frow-count";
-      count.textContent = String(counts[folder.id] || 0);
-      row.appendChild(count);
+      // × to deselect
+      const x = document.createElement("span");
+      x.className = "frow-x";
+      x.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      row.appendChild(x);
 
       row.addEventListener("click", () => toggleFolder(folder.id));
       folderList.appendChild(row);
     });
 
     updateParentFolderSelect();
+    renderFolderZone();
   }
 
   function toggleFolder(folderId) {
     if (activeFolderIds.includes(folderId)) {
-      // Deselect only if there's more than one selected
       if (activeFolderIds.length > 1) {
         activeFolderIds = activeFolderIds.filter((id) => id !== folderId);
       }
     } else {
       activeFolderIds = [...activeFolderIds, folderId];
     }
-    // Persist primary (first) active folder for backwards compat with background save
-    chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
+    // Update badge + clear-all
+    const n = activeFolderIds.length;
+    if (saveToCount) saveToCount.textContent = n > 0 ? String(n) : "";
+    if (clearAllBtn) clearAllBtn.style.display = n >= 2 ? "" : "none";
+    // Re-render chips & tree selection state
     renderFolderChips();
+    chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
     render();
+  }
+
+  // ---- Folder zone (tree / search results) ----
+
+  function getFolderCounts() {
+    const counts = {};
+    highlights.forEach((h) => { counts[h.folderId] = (counts[h.folderId] || 0) + 1; });
+    return counts;
+  }
+
+  function getFolderBreadcrumb(folder) {
+    if (!folder.parentId) return folder.name;
+    const parent = folders.find((f) => f.id === folder.parentId);
+    if (!parent) return folder.name;
+    return parent.name + " › " + folder.name;
+  }
+
+  function highlightMatch(text, query) {
+    if (!query) return esc(text);
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return esc(text);
+    return esc(text.slice(0, idx)) +
+      `<span class="match-hl">${esc(text.slice(idx, idx + query.length))}</span>` +
+      esc(text.slice(idx + query.length));
+  }
+
+  function renderFolderZone() {
+    if (!folderZone) return;
+    folderZone.innerHTML = "";
+
+    if (folderSearchQuery) {
+      renderFolderSearch();
+    } else {
+      renderFolderTree();
+    }
+
+    // Update secondary text
+    if (folderCountText) {
+      folderCountText.textContent = folders.length + " folder" + (folders.length !== 1 ? "s" : "");
+    }
+  }
+
+  function renderFolderTree() {
+    const counts = getFolderCounts();
+    const roots = folders.filter((f) => !f.parentId);
+    const getChildren = (id) => folders.filter((f) => f.parentId === id);
+
+    if (roots.length === 0) {
+      folderZone.innerHTML = '<div class="folder-zone-empty">No folders yet — create one above</div>';
+      return;
+    }
+
+    roots.forEach((root) => {
+      const kids = getChildren(root.id);
+      const hasKids = kids.length > 0;
+      const isOpen = !collapsedFolderIds.has(root.id);
+      const isSelected = activeFolderIds.includes(root.id);
+
+      // Root row
+      const row = document.createElement("div");
+      row.className = "ftree-row" + (isSelected ? " selected" : "");
+      row.dataset.id = root.id;
+
+      // Chevron wrapper (hit target + hover pill)
+      const chevWrap = document.createElement("div");
+      chevWrap.className = "ftree-chevron-wrap" + (!hasKids ? " hidden-chevron" : "");
+
+      const chevSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      chevSvg.setAttribute("viewBox", "0 0 24 24");
+      chevSvg.setAttribute("width", "13");
+      chevSvg.setAttribute("height", "13");
+      chevSvg.setAttribute("fill", "none");
+      chevSvg.setAttribute("stroke", "currentColor");
+      chevSvg.setAttribute("stroke-width", "2.5");
+      chevSvg.setAttribute("stroke-linecap", "round");
+      chevSvg.setAttribute("stroke-linejoin", "round");
+      const chevPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      chevPath.setAttribute("d", "m6 9 6 6 6-6");
+      chevSvg.appendChild(chevPath);
+      chevSvg.className = "ftree-chevron" + (isOpen ? " open" : "");
+      chevWrap.appendChild(chevSvg);
+
+      const folderIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      folderIcon.setAttribute("viewBox", "0 0 24 24");
+      folderIcon.setAttribute("width", "12");
+      folderIcon.setAttribute("height", "12");
+      folderIcon.setAttribute("fill", "none");
+      folderIcon.setAttribute("stroke", "currentColor");
+      folderIcon.setAttribute("stroke-width", "2");
+      const folderPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      folderPath.setAttribute("d", "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z");
+      folderIcon.appendChild(folderPath);
+      folderIcon.className = "ftree-icon";
+
+      const name = document.createElement("span");
+      name.className = "ftree-name";
+      name.textContent = root.name;
+
+      const count = document.createElement("span");
+      count.className = "ftree-count";
+      count.textContent = counts[root.id] ? String(counts[root.id]) : "";
+
+      // + button (hover-revealed)
+      const addBtn = document.createElement("button");
+      addBtn.className = "ftree-add";
+      addBtn.title = "New subfolder";
+      addBtn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+      addBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        newFolderDialog.classList.remove("hidden");
+        newFolderInput.value = "";
+        updateParentFolderSelect();
+        parentFolderSelect.value = root.id;
+        newFolderInput.focus();
+      });
+
+      row.appendChild(chevWrap);
+      row.appendChild(folderIcon);
+      row.appendChild(name);
+      row.appendChild(count);
+      row.appendChild(addBtn);
+
+      // Chevron wrapper click = toggle collapse
+      chevWrap.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!hasKids) return;
+        if (collapsedFolderIds.has(root.id)) {
+          collapsedFolderIds.delete(root.id);
+        } else {
+          collapsedFolderIds.add(root.id);
+        }
+        renderFolderZone();
+      });
+
+      // Row click = select folder
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".ftree-add") || e.target.closest(".ftree-chevron-wrap")) return;
+        toggleFolder(root.id);
+      });
+
+      // Right-click = context menu
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY, root.id);
+      });
+
+      folderZone.appendChild(row);
+
+      // Children
+      if (hasKids && isOpen) {
+        kids.forEach((child) => {
+          const isChildSelected = activeFolderIds.includes(child.id);
+          const childRow = document.createElement("div");
+          childRow.className = "ftree-row ftree-indent-1" + (isChildSelected ? " selected" : "");
+          childRow.dataset.id = child.id;
+
+          const childChevWrap = document.createElement("div");
+          childChevWrap.className = "ftree-chevron-wrap hidden-chevron";
+          const childChevSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          childChevSvg.setAttribute("viewBox", "0 0 24 24");
+          childChevSvg.setAttribute("width", "13");
+          childChevSvg.setAttribute("height", "13");
+          childChevSvg.setAttribute("fill", "none");
+          childChevSvg.setAttribute("stroke", "currentColor");
+          childChevSvg.setAttribute("stroke-width", "2.5");
+          childChevSvg.setAttribute("stroke-linecap", "round");
+          const childChevPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          childChevPath.setAttribute("d", "m6 9 6 6 6-6");
+          childChevSvg.appendChild(childChevPath);
+          childChevSvg.className = "ftree-chevron";
+          childChevWrap.appendChild(childChevSvg);
+
+          const childIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          childIcon.setAttribute("viewBox", "0 0 24 24");
+          childIcon.setAttribute("width", "12");
+          childIcon.setAttribute("height", "12");
+          childIcon.setAttribute("fill", "none");
+          childIcon.setAttribute("stroke", "currentColor");
+          childIcon.setAttribute("stroke-width", "2");
+          const childFolderPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          childFolderPath.setAttribute("d", "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z");
+          childIcon.appendChild(childFolderPath);
+          childIcon.className = "ftree-icon";
+
+          const childName = document.createElement("span");
+          childName.className = "ftree-name";
+          childName.textContent = child.name;
+
+          const childCount = document.createElement("span");
+          childCount.className = "ftree-count";
+          childCount.textContent = counts[child.id] ? String(counts[child.id]) : "";
+
+          childRow.appendChild(childChevWrap);
+          childRow.appendChild(childIcon);
+          childRow.appendChild(childName);
+          childRow.appendChild(childCount);
+
+          childRow.addEventListener("click", () => toggleFolder(child.id));
+          childRow.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            showContextMenu(e.clientX, e.clientY, child.id);
+          });
+
+          folderZone.appendChild(childRow);
+        });
+      }
+    });
+  }
+
+  function renderFolderSearch() {
+    const q = folderSearchQuery.toLowerCase();
+    const results = folders.filter((f) => f.name.toLowerCase().includes(q));
+
+    if (results.length === 0) {
+      folderZone.innerHTML = `<div class="folder-zone-empty">No folders match "${esc(folderSearchQuery)}"</div>`;
+      return;
+    }
+
+    results.forEach((folder) => {
+      const row = document.createElement("div");
+      row.className = "fsearch-row";
+      row.dataset.id = folder.id;
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "fsearch-name";
+      nameEl.innerHTML = highlightMatch(folder.name, folderSearchQuery);
+
+      const breadcrumb = document.createElement("div");
+      breadcrumb.className = "fsearch-breadcrumb";
+      breadcrumb.textContent = getFolderBreadcrumb(folder);
+
+      row.appendChild(nameEl);
+      if (folder.parentId) row.appendChild(breadcrumb);
+
+      row.addEventListener("click", () => {
+        toggleFolder(folder.id);
+        // Clear search after picking
+        folderSearchInput.value = "";
+        folderSearchQuery = "";
+        folderSearchClear.style.display = "none";
+        renderFolderZone();
+      });
+
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        showContextMenu(e.clientX, e.clientY, folder.id);
+      });
+
+      folderZone.appendChild(row);
+    });
+  }
+
+  // ---- Context menu ----
+  function showContextMenu(x, y, folderId) {
+    contextMenuFolderId = folderId;
+    const menu = folderContextMenu;
+    menu.classList.remove("hidden");
+    // Position — keep inside panel
+    const panel = document.querySelector(".panel");
+    const panelRect = panel.getBoundingClientRect();
+    let left = x - panelRect.left;
+    let top = y - panelRect.top;
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
+    // Make relative to panel
+    menu.style.position = "absolute";
+    // Ensure visible
+    requestAnimationFrame(() => {
+      const mRect = menu.getBoundingClientRect();
+      const pRect = panel.getBoundingClientRect();
+      if (mRect.right > pRect.right) menu.style.left = (left - menu.offsetWidth) + "px";
+      if (mRect.bottom > pRect.bottom) menu.style.top = (top - menu.offsetHeight) + "px";
+    });
+    panel.style.position = "relative";
+  }
+
+  function hideContextMenu() {
+    folderContextMenu.classList.add("hidden");
+    contextMenuFolderId = null;
+  }
+
+  document.addEventListener("click", hideContextMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideContextMenu(); });
+
+  ctxSelect && ctxSelect.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (contextMenuFolderId) toggleFolder(contextMenuFolderId);
+    hideContextMenu();
+  });
+
+  ctxRename && ctxRename.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!contextMenuFolderId) return hideContextMenu();
+    const folder = folders.find((f) => f.id === contextMenuFolderId);
+    if (!folder) return hideContextMenu();
+    const newName = prompt("Rename folder", folder.name);
+    if (newName && newName.trim() && newName.trim() !== folder.name) {
+      chrome.runtime.sendMessage({ action: "rename-folder", id: folder.id, name: newName.trim() }, (res) => {
+        if (res?.success) refreshFolders();
+      });
+    }
+    hideContextMenu();
+  });
+
+  ctxDelete && ctxDelete.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!contextMenuFolderId) return hideContextMenu();
+    const folder = folders.find((f) => f.id === contextMenuFolderId);
+    if (!folder) return hideContextMenu();
+    if (!confirm(`Delete folder "${folder.name}"?`)) return hideContextMenu();
+    chrome.runtime.sendMessage({ action: "delete-folder", id: folder.id }, (res) => {
+      if (res?.success) refreshFolders();
+    });
+    hideContextMenu();
+  });
+
+  // ---- Search bar events ----
+  folderSearchInput && folderSearchInput.addEventListener("input", () => {
+    folderSearchQuery = folderSearchInput.value;
+    folderSearchClear.style.display = folderSearchQuery ? "" : "none";
+    renderFolderZone();
+  });
+
+  folderSearchClear && folderSearchClear.addEventListener("click", () => {
+    folderSearchInput.value = "";
+    folderSearchQuery = "";
+    folderSearchClear.style.display = "none";
+    folderSearchInput.focus();
+    renderFolderZone();
+  });
+
+  // ---- Clear all selected folders ----
+  clearAllBtn && clearAllBtn.addEventListener("click", () => {
+    if (folders.length > 0) {
+      activeFolderIds = [folders[0].id];
+      chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
+      renderFolderChips();
+      render();
+    }
+  });
+
+  function refreshFolders(selectId) {
+    chrome.runtime.sendMessage({ action: "get-state" }, (result) => {
+if (chrome.runtime.lastError || !result?.folders) return;
+      folders = result.folders;
+      highlights = result.highlights || highlights;
+      if (selectId && !activeFolderIds.includes(selectId) && folders.find((f) => f.id === selectId)) {
+        activeFolderIds = [...activeFolderIds, selectId];
+      }
+      // Drop active IDs that no longer exist
+      const folderIdSet = new Set(folders.map((f) => f.id));
+      activeFolderIds = activeFolderIds.filter((id) => folderIdSet.has(id));
+      if (activeFolderIds.length === 0 && folders.length > 0) activeFolderIds = [folders[0].id];
+      renderFolderChips();
+      render();
+    });
   }
 
   function updateParentFolderSelect() {
@@ -558,10 +938,54 @@
       });
     });
 
+    // Click card body → scroll to highlight on page, or seek YouTube video
+    content.querySelectorAll(".h-card").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".h-delete")) return;
+        const id = card.dataset.id;
+        const h = highlights.find((x) => x.id === id);
+        if (!h) return;
+
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabList) => {
+          const tab = tabList?.[0];
+          if (!tab) return;
+
+          if (h.type === "video" && h.videoTimestamp) {
+            // YouTube: seek to timestamp
+            chrome.tabs.sendMessage(tab.id, { action: "seek-yt", timestamp: h.videoTimestamp }, () => {
+              if (chrome.runtime.lastError) {
+                // Tab may not have content script — open the video at the timestamp
+                const url = h.videoId
+                  ? `https://www.youtube.com/watch?v=${h.videoId}&t=${timestampToSeconds(h.videoTimestamp)}s`
+                  : h.sourceUrl;
+                if (url) chrome.tabs.update(tab.id, { url });
+              }
+            });
+          } else {
+            // Regular page: scroll to highlighted text
+            chrome.tabs.sendMessage(tab.id, { action: "scroll-to-highlight", id }, () => {
+              if (chrome.runtime.lastError) {
+                // Content script not loaded (different page) — navigate and let reinject handle it
+                if (h.sourceUrl) chrome.tabs.update(tab.id, { url: h.sourceUrl });
+              }
+            });
+          }
+        });
+      });
+    });
+
     const seeAllBtn = $("#seeAllBtn");
     if (seeAllBtn) {
       seeAllBtn.addEventListener("click", () => openWithTokens("dashboard"));
     }
+  }
+
+  function timestampToSeconds(ts) {
+    if (!ts) return 0;
+    const parts = ts.split(":").map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts[0] || 0;
   }
 
   function cardHtml(h) {
@@ -581,7 +1005,7 @@
     }
 
     return `
-      <div class="h-card">
+      <div class="h-card" data-id="${h.id}">
         <div class="h-bar ${h.color}"></div>
         <div class="h-body">
           ${body}
@@ -632,17 +1056,56 @@
 
   // ---- Events ----
 
+  // ---- Color glow config ----
+  const COLOR_HEX = {
+    yellow: "#F5C542",
+    blue:   "#38bdf8",
+    pink:   "#fb7185",
+    green:  "#34d399",
+    orange: "#fb923c",
+  };
+
+  function applyColorToToggle(color) {
+    const hex = COLOR_HEX[color] || "#171717";
+    toggleBtn.style.setProperty("--toggle-color", hex);
+    // glow: hex + "44" (27% alpha)
+    toggleBtn.style.setProperty("--toggle-glow", hex + "44");
+    if (highlightingActive) {
+      toggleBtn.classList.add("glow");
+    }
+  }
+
+  function applyColorSwatchSelection(color) {
+    const bgColor = isDark ? "#0a0a0a" : "#ffffff";
+    colorBtns.forEach((b) => {
+      const dot = b.querySelector(".dot");
+      if (!dot) return;
+      if (b.dataset.color === color) {
+        const hex = COLOR_HEX[color] || "#999";
+        dot.style.boxShadow = `0 0 0 2px ${bgColor}, 0 0 0 3.5px ${hex}`;
+      } else {
+        dot.style.boxShadow = "";
+      }
+    });
+  }
+
   toggleBtn.addEventListener("click", () => {
     highlightingActive = !highlightingActive;
     toggleBtn.classList.toggle("active", highlightingActive);
+    if (highlightingActive) {
+      toggleBtn.classList.add("glow");
+      applyColorToToggle(activeColor);
+    } else {
+      toggleBtn.classList.remove("glow");
+    }
     chrome.runtime.sendMessage({ action: "toggle-highlighting", active: highlightingActive });
   });
 
   colorBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
-      colorBtns.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
       activeColor = btn.dataset.color;
+      applyColorSwatchSelection(activeColor);
+      applyColorToToggle(activeColor);
       chrome.runtime.sendMessage({ action: "set-color", color: activeColor });
     });
   });
@@ -710,15 +1173,10 @@
     confirmFolder.disabled = true;
     chrome.runtime.sendMessage({ action: "create-folder", name, parentId }, (response) => {
       confirmFolder.disabled = false;
-      if (response?.success && response.folder) {
-        folders.push(response.folder);
-        // Auto-select the new folder
-        activeFolderIds = [...activeFolderIds, response.folder.id];
-        chrome.runtime.sendMessage({ action: "set-folder", folderId: activeFolderIds[0] });
-        renderFolderChips();
-        render();
-      }
       newFolderDialog.classList.add("hidden");
+      if (response?.success && response.folder) {
+        refreshFolders(response.folder.id);
+      }
     });
   });
 
