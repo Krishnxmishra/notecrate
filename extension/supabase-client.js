@@ -18,7 +18,6 @@
 
   self.sbClient = sbClient;
 
-<<<<<<< HEAD
   // Sign out extension when account is deleted (or token is invalidated)
   sbClient.auth.onAuthStateChange((event) => {
     if (event === "SIGNED_OUT" || event === "USER_DELETED") {
@@ -33,8 +32,7 @@
     }
   });
 
-=======
->>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
+
   // Returns user from local session (no network call)
   self.getUser = async function () {
     const { data: { session } } = await sbClient.auth.getSession();

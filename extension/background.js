@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 importScripts("config.js", "supabase.min.js", "supabase-client.js");
-=======
-importScripts("supabase.min.js", "supabase-client.js");
->>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 
 const SUPABASE_URL = "https://jlzalpnwplpkllgfyxqz.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsemFscG53cGxwa2xsZ2Z5eHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4NjUwNTUsImV4cCI6MjA4NjQ0MTA1NX0.WFu4wmSKUOsnh1XPR5SqLoUmLx13zbfwuiS0fVFhQ6w";
@@ -11,14 +7,10 @@ let realtimeChannel = null;
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-<<<<<<< HEAD
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     chrome.tabs.create({ url: `${APP_URL}/signup` });
   }
-=======
-chrome.runtime.onInstalled.addListener(() => {
->>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   chrome.contextMenus.create({ id: "save-text", title: "Save to NoteCrate", contexts: ["selection"] });
   chrome.contextMenus.create({ id: "save-image", title: "Save image to NoteCrate", contexts: ["image"] });
   chrome.storage.local.get("activeColor", (r) => {
@@ -146,11 +138,7 @@ async function broadcastInsert(mapped, token) {
 
 async function saveHighlight(data) {
   const session = await getSessionToken();
-<<<<<<< HEAD
   console.log("[NC] session found:", !!session);
-=======
-  console.log("[NC] session found:", !!session, "user:", session?.user?.email);
->>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   if (!session || !session.user || !session.access_token) {
     throw new Error("Not logged in");
   }
@@ -435,7 +423,6 @@ async function handleMessage(message, sendResponse) {
         break;
       }
 
-<<<<<<< HEAD
       case "ping": {
         sendResponse({ pong: true });
         break;
@@ -458,8 +445,7 @@ async function handleMessage(message, sendResponse) {
         break;
       }
 
-=======
->>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
+
       default:
         sendResponse({ success: false, error: "Unknown: " + message.action });
     }
