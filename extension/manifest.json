@@ -45,11 +45,14 @@
   ],
   "background": {
     "service_worker": "background.js"
+<<<<<<< HEAD
   },
   "externally_connectable": {
     "matches": [
       "https://notecrate.me/*",
       "http://localhost:3000/*"
     ]
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   }
 }

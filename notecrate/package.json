@@ -20,7 +20,11 @@
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
+<<<<<<< HEAD
     "prisma": "^6.19.2",
+=======
+    "prisma": "^7.3.0",
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",

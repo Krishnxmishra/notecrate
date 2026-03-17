@@ -3,12 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+<<<<<<< HEAD
 import { updateProfile, deleteAccount } from "@/lib/actions";
+=======
+import { updateProfile } from "@/lib/actions";
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 import { useTheme, type Theme } from "@/hooks/use-theme";
 import { useFontSize, type FontSize } from "@/hooks/use-font-size";
 import { LogOut, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+<<<<<<< HEAD
 // ---- Delete account ----
 
 function DeleteAccountButton() {
@@ -53,6 +58,8 @@ function DeleteAccountButton() {
   );
 }
 
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 // ---- Reusable primitives ----
 
 function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -410,7 +417,13 @@ export function SettingsClient({
                   Permanently delete your account and all data. This cannot be undone.
                 </p>
               </div>
+<<<<<<< HEAD
               <DeleteAccountButton />
+=======
+              <button className="shrink-0 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-[12px] font-medium text-red-600 dark:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30">
+                Delete
+              </button>
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
             </Row>
           </div>
         </section>

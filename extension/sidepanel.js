@@ -39,8 +39,16 @@
   const parentFolderSelect = $("#parentFolderSelect");
 
   const authScreen = $("#authScreen");
+<<<<<<< HEAD
   const authGetStarted = $("#authGetStarted");
   const authSignInLink = $("#authSignInLink");
+=======
+  const authEmail = $("#authEmail");
+  const authPassword = $("#authPassword");
+  const authSignIn = $("#authSignIn");
+  const authSignUp = $("#authSignUp");
+  const authError = $("#authError");
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   const headerAccountName = $("#headerAccountName");
 
   const settingsBtn = $("#settingsBtn");
@@ -123,6 +131,7 @@
     if (msg.action === "save-error") {
       showToastMsg("Failed to save — check connection");
     }
+<<<<<<< HEAD
     if (msg.action === "auth-changed") {
       loadState();
     }
@@ -135,22 +144,39 @@
       showAuthScreen();
       updateUserBar();
     }
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   });
 
   // ---- Auth UI ----
 
+<<<<<<< HEAD
   // APP_URL is defined in config.js (loaded before this script)
 
   function showAuthScreen() {
     authScreen.classList.remove("hidden");
+=======
+  function showAuthScreen() {
+    authScreen.classList.remove("hidden");
+    authError.classList.add("hidden");
+    authEmail.value = "";
+    authPassword.value = "";
+    authEmail.focus();
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   }
 
   function hideAuthScreen() {
     authScreen.classList.add("hidden");
   }
 
+<<<<<<< HEAD
   function showAuthError(_msg) {
     // No-op: auth errors no longer displayed in sidepanel
+=======
+  function showAuthError(msg) {
+    authError.textContent = msg;
+    authError.classList.remove("hidden");
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   }
 
   function updateUserBar() {
@@ -166,12 +192,74 @@
     }
   }
 
+<<<<<<< HEAD
   authGetStarted.addEventListener("click", () => {
     chrome.tabs.create({ url: `${APP_URL}/signup` });
   });
 
   authSignInLink.addEventListener("click", () => {
     chrome.tabs.create({ url: `${APP_URL}/login` });
+=======
+  authSignIn.addEventListener("click", () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if (!email || !password) return showAuthError("Email and password required.");
+
+    authSignIn.disabled = true;
+    authSignIn.textContent = "Signing in\u2026";
+    authError.classList.add("hidden");
+
+    chrome.runtime.sendMessage({ action: "sign-in", email, password }, (res) => {
+      authSignIn.disabled = false;
+      authSignIn.textContent = "Sign in";
+
+      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
+
+      if (res?.success && res.user) {
+        currentUser = res.user;
+        hideAuthScreen();
+        updateUserBar();
+        loadState();
+      } else {
+        showAuthError(res?.error || "Sign in failed. Check your credentials.");
+      }
+    });
+  });
+
+  authSignUp.addEventListener("click", () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if (!email || !password) return showAuthError("Email and password required.");
+    if (password.length < 6) return showAuthError("Password must be at least 6 characters.");
+
+    authSignUp.disabled = true;
+    authSignUp.textContent = "Creating\u2026";
+    authError.classList.add("hidden");
+
+    chrome.runtime.sendMessage({ action: "sign-up", email, password }, (res) => {
+      authSignUp.disabled = false;
+      authSignUp.textContent = "Create account";
+
+      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
+
+      if (res?.success) {
+        if (res.user) {
+          currentUser = res.user;
+          hideAuthScreen();
+          updateUserBar();
+          loadState();
+        } else {
+          showAuthError("Check your email to confirm your account, then sign in.");
+        }
+      } else {
+        showAuthError(res?.error || "Sign up failed.");
+      }
+    });
+  });
+
+  authPassword.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") authSignIn.click();
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   });
 
   // ---- Supabase Realtime ----
@@ -200,6 +288,7 @@
         event: "*", schema: "public", table: "folders",
         filter: `user_id=eq.${userId}`,
       }, handleFolderChange)
+<<<<<<< HEAD
       .on("postgres_changes", {
         event: "DELETE", schema: "public", table: "profiles",
         filter: `id=eq.${userId}`,
@@ -213,6 +302,8 @@
         showAuthScreen();
         updateUserBar();
       })
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
       .on("broadcast", { event: "custom-delete" }, (payload) => {
         highlights = highlights.filter((h) => h.id !== payload.payload.id);
         render();
@@ -309,6 +400,7 @@ if (eventType === "INSERT") {
     render();
   }
 
+<<<<<<< HEAD
   // ---- Session watch — detects account deletion or web sign-out ----
 
   let sessionWatchInterval = null;
@@ -365,6 +457,12 @@ if (eventType === "INSERT") {
 
   function loadState() {
     chrome.runtime.sendMessage({ action: "get-state" }, async (result) => {
+=======
+  // ---- Load state from background ----
+
+  function loadState() {
+    chrome.runtime.sendMessage({ action: "get-state" }, (result) => {
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
       if (chrome.runtime.lastError || !result) {
         setTimeout(loadState, 500);
         return;
@@ -373,15 +471,19 @@ if (eventType === "INSERT") {
       currentUser = result.user || null;
 
       if (!currentUser) {
+<<<<<<< HEAD
         const synced = await trySyncFromWeb();
         if (synced) {
           loadState();
           return;
         }
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
         showAuthScreen();
         return;
       }
 
+<<<<<<< HEAD
       // Verify the web session is still valid before showing logged-in UI
       try {
         const res = await fetch(`${APP_URL}/api/extension/session`, { credentials: "include" });
@@ -401,6 +503,11 @@ if (eventType === "INSERT") {
       hideAuthScreen();
       updateUserBar();
       startSessionWatch();
+=======
+      currentUserName = result.userName || null;
+      hideAuthScreen();
+      updateUserBar();
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 
       highlights = result.highlights || [];
       folders = result.folders || [];
@@ -1015,7 +1122,11 @@ if (chrome.runtime.lastError || !result?.folders) return;
 
     const seeAllBtn = $("#seeAllBtn");
     if (seeAllBtn) {
+<<<<<<< HEAD
       seeAllBtn.addEventListener("click", () => openApp("dashboard"));
+=======
+      seeAllBtn.addEventListener("click", () => openWithTokens("dashboard"));
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
     }
   }
 
@@ -1082,8 +1193,20 @@ if (chrome.runtime.lastError || !result?.folders) return;
     setTimeout(() => { t.style.opacity = "0"; }, 2500);
   }
 
+<<<<<<< HEAD
   function openApp(path) {
     chrome.tabs.create({ url: `${APP_URL}/${path}` });
+=======
+  function openWithTokens(path) {
+    chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
+      if (res?.accessToken && res?.refreshToken) {
+        const url = `http://localhost:3000/auth/extension#access_token=${encodeURIComponent(res.accessToken)}&refresh_token=${encodeURIComponent(res.refreshToken)}&type=recovery&next=/${path}`;
+        chrome.tabs.create({ url });
+      } else {
+        chrome.tabs.create({ url: `http://localhost:3000/${path}` });
+      }
+    });
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
   }
 
   // ---- Events ----
@@ -1151,7 +1274,11 @@ if (chrome.runtime.lastError || !result?.folders) return;
     });
   });
 
+<<<<<<< HEAD
   openAppBtn.addEventListener("click", () => openApp("dashboard"));
+=======
+  openAppBtn.addEventListener("click", () => openWithTokens("dashboard"));
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 
   saveClipBtn.addEventListener("click", () => {
     saveClipBtn.disabled = true;

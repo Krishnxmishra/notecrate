@@ -1,7 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+<<<<<<< HEAD
 import { createServiceRoleClient } from "@/lib/supabase/service";
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 import { revalidatePath } from "next/cache";
 
 export async function createFolder(name: string, parentId: string | null = null) {
@@ -71,6 +74,7 @@ export async function renameFolder(id: string, name: string) {
   revalidatePath("/", "layout");
 }
 
+<<<<<<< HEAD
 export async function deleteAccount() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -81,6 +85,8 @@ export async function deleteAccount() {
   await supabase.auth.signOut();
 }
 
+=======
+>>>>>>> cdc6ccf65ee72e1b66d9182116deac52c10599f3
 export async function deleteFolder(id: string) {
   const supabase = await createClient();
   // Delete all highlights in this folder and subfolders
