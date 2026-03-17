@@ -45,5 +45,11 @@
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://notecrate.me/*",
+      "http://localhost:3000/*"
+    ]
   }
 }

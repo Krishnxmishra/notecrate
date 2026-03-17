@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { revalidatePath } from "next/cache";
 
 export async function createFolder(name: string, parentId: string | null = null) {
@@ -69,6 +70,17 @@ export async function renameFolder(id: string, name: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
 }
+
+export async function deleteAccount() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const admin = createServiceRoleClient();
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) throw new Error(error.message);
+  await supabase.auth.signOut();
+}
+
 
 export async function deleteFolder(id: string) {
   const supabase = await createClient();

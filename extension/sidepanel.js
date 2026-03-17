@@ -39,11 +39,8 @@
   const parentFolderSelect = $("#parentFolderSelect");
 
   const authScreen = $("#authScreen");
-  const authEmail = $("#authEmail");
-  const authPassword = $("#authPassword");
-  const authSignIn = $("#authSignIn");
-  const authSignUp = $("#authSignUp");
-  const authError = $("#authError");
+  const authGetStarted = $("#authGetStarted");
+  const authSignInLink = $("#authSignInLink");
   const headerAccountName = $("#headerAccountName");
 
   const settingsBtn = $("#settingsBtn");
@@ -126,25 +123,34 @@
     if (msg.action === "save-error") {
       showToastMsg("Failed to save — check connection");
     }
+    if (msg.action === "auth-changed") {
+      loadState();
+    }
+    if (msg.action === "force-sign-out") {
+      stopSessionWatch();
+      teardownRealtime();
+      currentUser = null;
+      highlights = [];
+      folders = [];
+      showAuthScreen();
+      updateUserBar();
+    }
   });
 
   // ---- Auth UI ----
 
+  // APP_URL is defined in config.js (loaded before this script)
+
   function showAuthScreen() {
     authScreen.classList.remove("hidden");
-    authError.classList.add("hidden");
-    authEmail.value = "";
-    authPassword.value = "";
-    authEmail.focus();
   }
 
   function hideAuthScreen() {
     authScreen.classList.add("hidden");
   }
 
-  function showAuthError(msg) {
-    authError.textContent = msg;
-    authError.classList.remove("hidden");
+  function showAuthError(_msg) {
+    // No-op: auth errors no longer displayed in sidepanel
   }
 
   function updateUserBar() {
@@ -160,65 +166,12 @@
     }
   }
 
-  authSignIn.addEventListener("click", () => {
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-    if (!email || !password) return showAuthError("Email and password required.");
-
-    authSignIn.disabled = true;
-    authSignIn.textContent = "Signing in\u2026";
-    authError.classList.add("hidden");
-
-    chrome.runtime.sendMessage({ action: "sign-in", email, password }, (res) => {
-      authSignIn.disabled = false;
-      authSignIn.textContent = "Sign in";
-
-      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
-
-      if (res?.success && res.user) {
-        currentUser = res.user;
-        hideAuthScreen();
-        updateUserBar();
-        loadState();
-      } else {
-        showAuthError(res?.error || "Sign in failed. Check your credentials.");
-      }
-    });
+  authGetStarted.addEventListener("click", () => {
+    chrome.tabs.create({ url: `${APP_URL}/signup` });
   });
 
-  authSignUp.addEventListener("click", () => {
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-    if (!email || !password) return showAuthError("Email and password required.");
-    if (password.length < 6) return showAuthError("Password must be at least 6 characters.");
-
-    authSignUp.disabled = true;
-    authSignUp.textContent = "Creating\u2026";
-    authError.classList.add("hidden");
-
-    chrome.runtime.sendMessage({ action: "sign-up", email, password }, (res) => {
-      authSignUp.disabled = false;
-      authSignUp.textContent = "Create account";
-
-      if (chrome.runtime.lastError) return showAuthError("Extension error \u2014 try reloading.");
-
-      if (res?.success) {
-        if (res.user) {
-          currentUser = res.user;
-          hideAuthScreen();
-          updateUserBar();
-          loadState();
-        } else {
-          showAuthError("Check your email to confirm your account, then sign in.");
-        }
-      } else {
-        showAuthError(res?.error || "Sign up failed.");
-      }
-    });
-  });
-
-  authPassword.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") authSignIn.click();
+  authSignInLink.addEventListener("click", () => {
+    chrome.tabs.create({ url: `${APP_URL}/login` });
   });
 
   // ---- Supabase Realtime ----
@@ -247,6 +200,19 @@
         event: "*", schema: "public", table: "folders",
         filter: `user_id=eq.${userId}`,
       }, handleFolderChange)
+      .on("postgres_changes", {
+        event: "DELETE", schema: "public", table: "profiles",
+        filter: `id=eq.${userId}`,
+      }, () => {
+        // Account deleted — clear local state immediately (also clears background storage)
+        chrome.runtime.sendMessage({ action: "sign-out" });
+        teardownRealtime();
+        currentUser = null;
+        highlights = [];
+        folders = [];
+        showAuthScreen();
+        updateUserBar();
+      })
       .on("broadcast", { event: "custom-delete" }, (payload) => {
         highlights = highlights.filter((h) => h.id !== payload.payload.id);
         render();
@@ -343,10 +309,62 @@ if (eventType === "INSERT") {
     render();
   }
 
+  // ---- Session watch — detects account deletion or web sign-out ----
+
+  let sessionWatchInterval = null;
+
+  function startSessionWatch() {
+    if (sessionWatchInterval) return;
+    sessionWatchInterval = setInterval(async () => {
+      if (!currentUser) { stopSessionWatch(); return; }
+      try {
+        const res = await fetch(`${APP_URL}/api/extension/session`, { credentials: "include" });
+        if (!res.ok) return;
+        const { session } = await res.json();
+        if (!session) {
+          stopSessionWatch();
+          teardownRealtime();
+          currentUser = null;
+          highlights = [];
+          folders = [];
+          chrome.runtime.sendMessage({ action: "sign-out" });
+          showAuthScreen();
+          updateUserBar();
+        }
+      } catch { /* network error — ignore */ }
+    }, 30000);
+  }
+
+  function stopSessionWatch() {
+    if (sessionWatchInterval) { clearInterval(sessionWatchInterval); sessionWatchInterval = null; }
+  }
+
+  // ---- Pull session from web app (Supabase as shared auth layer) ----
+
+  async function trySyncFromWeb() {
+    try {
+      const res = await fetch(`${APP_URL}/api/extension/session`, {
+        credentials: "include",
+      });
+      if (!res.ok) return false;
+      const { session } = await res.json();
+      if (!session?.access_token) return false;
+      await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: "set-session", accessToken: session.access_token, refreshToken: session.refresh_token },
+          resolve
+        );
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // ---- Load state from background ----
 
   function loadState() {
-    chrome.runtime.sendMessage({ action: "get-state" }, (result) => {
+    chrome.runtime.sendMessage({ action: "get-state" }, async (result) => {
       if (chrome.runtime.lastError || !result) {
         setTimeout(loadState, 500);
         return;
@@ -355,13 +373,34 @@ if (eventType === "INSERT") {
       currentUser = result.user || null;
 
       if (!currentUser) {
+        const synced = await trySyncFromWeb();
+        if (synced) {
+          loadState();
+          return;
+        }
         showAuthScreen();
         return;
       }
 
+      // Verify the web session is still valid before showing logged-in UI
+      try {
+        const res = await fetch(`${APP_URL}/api/extension/session`, { credentials: "include" });
+        if (res.ok) {
+          const { session } = await res.json();
+          if (!session) {
+            chrome.runtime.sendMessage({ action: "sign-out" });
+            currentUser = null;
+            showAuthScreen();
+            updateUserBar();
+            return;
+          }
+        }
+      } catch { /* network unavailable — proceed with cached state */ }
+
       currentUserName = result.userName || null;
       hideAuthScreen();
       updateUserBar();
+      startSessionWatch();
 
       highlights = result.highlights || [];
       folders = result.folders || [];
@@ -976,7 +1015,7 @@ if (chrome.runtime.lastError || !result?.folders) return;
 
     const seeAllBtn = $("#seeAllBtn");
     if (seeAllBtn) {
-      seeAllBtn.addEventListener("click", () => openWithTokens("dashboard"));
+      seeAllBtn.addEventListener("click", () => openApp("dashboard"));
     }
   }
 
@@ -1043,15 +1082,8 @@ if (chrome.runtime.lastError || !result?.folders) return;
     setTimeout(() => { t.style.opacity = "0"; }, 2500);
   }
 
-  function openWithTokens(path) {
-    chrome.runtime.sendMessage({ action: "get-session-tokens" }, (res) => {
-      if (res?.accessToken && res?.refreshToken) {
-        const url = `http://localhost:3000/auth/extension#access_token=${encodeURIComponent(res.accessToken)}&refresh_token=${encodeURIComponent(res.refreshToken)}&type=recovery&next=/${path}`;
-        chrome.tabs.create({ url });
-      } else {
-        chrome.tabs.create({ url: `http://localhost:3000/${path}` });
-      }
-    });
+  function openApp(path) {
+    chrome.tabs.create({ url: `${APP_URL}/${path}` });
   }
 
   // ---- Events ----
@@ -1119,7 +1151,7 @@ if (chrome.runtime.lastError || !result?.folders) return;
     });
   });
 
-  openAppBtn.addEventListener("click", () => openWithTokens("dashboard"));
+  openAppBtn.addEventListener("click", () => openApp("dashboard"));
 
   saveClipBtn.addEventListener("click", () => {
     saveClipBtn.disabled = true;

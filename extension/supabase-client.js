@@ -18,6 +18,21 @@
 
   self.sbClient = sbClient;
 
+  // Sign out extension when account is deleted (or token is invalidated)
+  sbClient.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+      chrome.storage.local.remove(
+        ["sb-jlzalpnwplpkllgfyxqz-auth-token"],
+        () => {
+          chrome.storage.local.set({ activeFolder: null, highlightingActive: false });
+          // Use force-sign-out so sidepanel skips trySyncFromWeb and goes straight to auth screen
+          chrome.runtime.sendMessage({ action: "force-sign-out" }).catch(() => {});
+        }
+      );
+    }
+  });
+
+
   // Returns user from local session (no network call)
   self.getUser = async function () {
     const { data: { session } } = await sbClient.auth.getSession();

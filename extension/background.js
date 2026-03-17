@@ -1,4 +1,4 @@
-importScripts("supabase.min.js", "supabase-client.js");
+importScripts("config.js", "supabase.min.js", "supabase-client.js");
 
 const SUPABASE_URL = "https://jlzalpnwplpkllgfyxqz.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsemFscG53cGxwa2xsZ2Z5eHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4NjUwNTUsImV4cCI6MjA4NjQ0MTA1NX0.WFu4wmSKUOsnh1XPR5SqLoUmLx13zbfwuiS0fVFhQ6w";
@@ -7,7 +7,10 @@ let realtimeChannel = null;
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: `${APP_URL}/signup` });
+  }
   chrome.contextMenus.create({ id: "save-text", title: "Save to NoteCrate", contexts: ["selection"] });
   chrome.contextMenus.create({ id: "save-image", title: "Save image to NoteCrate", contexts: ["image"] });
   chrome.storage.local.get("activeColor", (r) => {
@@ -135,7 +138,7 @@ async function broadcastInsert(mapped, token) {
 
 async function saveHighlight(data) {
   const session = await getSessionToken();
-  console.log("[NC] session found:", !!session, "user:", session?.user?.email);
+  console.log("[NC] session found:", !!session);
   if (!session || !session.user || !session.access_token) {
     throw new Error("Not logged in");
   }
@@ -419,6 +422,29 @@ async function handleMessage(message, sendResponse) {
         sendResponse({ accessToken: session?.access_token || null, refreshToken: session?.refresh_token || null });
         break;
       }
+
+      case "ping": {
+        sendResponse({ pong: true });
+        break;
+      }
+
+      case "set-session": {
+        try {
+          await sbClient.auth.setSession({
+            access_token: message.accessToken,
+            refresh_token: message.refreshToken,
+          });
+          const { data: { user } } = await sbClient.auth.getUser();
+          if (user) await setupRealtimeSync(user);
+          // Notify sidepanel (if open) to refresh its state
+          chrome.runtime.sendMessage({ action: "auth-changed" }).catch(() => {});
+          sendResponse({ success: true });
+        } catch (err) {
+          sendResponse({ success: false, error: err.message });
+        }
+        break;
+      }
+
 
       default:
         sendResponse({ success: false, error: "Unknown: " + message.action });

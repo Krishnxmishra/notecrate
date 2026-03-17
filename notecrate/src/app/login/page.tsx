@@ -24,8 +24,7 @@ export default function Login() {
       setError(authError.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
-      router.refresh();
+      router.push("/auth/sync?next=%2Fdashboard");
     }
   }
 

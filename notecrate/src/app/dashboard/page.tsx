@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  FileText,
   FolderClosed,
   Highlighter,
   TrendingUp,
@@ -11,13 +10,33 @@ import { TopNav } from "@/components/topnav";
 import { NewFolderButton } from "@/components/new-folder-button";
 import { RecentHighlights } from "./recent-highlights";
 import { getFolders, getRecentHighlights, getStats } from "@/lib/db";
+import { OnboardingBanner } from "@/components/onboarding-banner";
+import { createClient } from "@/lib/supabase/server";
+
+async function getProfile() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select("created_at")
+    .eq("id", user.id)
+    .single();
+  return data;
+}
 
 export default async function Dashboard() {
-  const [recentHighlights, folders, stats] = await Promise.all([
+  const [recentHighlights, folders, stats, profile] = await Promise.all([
     getRecentHighlights(6),
     getFolders(),
     getStats(),
+    getProfile(),
   ]);
+
+  const isNewUser = profile
+    ? Date.now() - new Date(profile.created_at).getTime() < 7 * 24 * 60 * 60 * 1000
+    : false;
+
 
   const rootFolders = folders.filter((f) => f.parentId === null);
 
@@ -26,6 +45,7 @@ export default async function Dashboard() {
       <TopNav title="Dashboard" />
       <div className="flex-1 overflow-y-auto bg-[#fbfbfb] dark:bg-neutral-950">
         <div className="mx-auto max-w-[960px] px-8 py-8">
+          <OnboardingBanner isNewUser={isNewUser} />
           {/* Header */}
           <div className="mb-8">
             <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900 dark:text-neutral-100">

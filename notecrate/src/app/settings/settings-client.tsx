@@ -3,11 +3,56 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { updateProfile } from "@/lib/actions";
+import { updateProfile, deleteAccount } from "@/lib/actions";
 import { useTheme, type Theme } from "@/hooks/use-theme";
 import { useFontSize, type FontSize } from "@/hooks/use-font-size";
 import { LogOut, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ---- Delete account ----
+
+function DeleteAccountButton() {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function handleDelete() {
+    startTransition(async () => {
+      await deleteAccount();
+      router.push("/");
+    });
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={() => setConfirming(false)}
+          className="rounded-lg border border-neutral-200 px-3 py-1.5 text-[12px] text-neutral-600 transition-colors hover:border-neutral-300"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={pending}
+          className="rounded-lg bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+        >
+          {pending ? "Deleting…" : "Confirm delete"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      className="shrink-0 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-[12px] font-medium text-red-600 dark:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+    >
+      Delete
+    </button>
+  );
+}
+
 
 // ---- Reusable primitives ----
 
@@ -366,9 +411,7 @@ export function SettingsClient({
                   Permanently delete your account and all data. This cannot be undone.
                 </p>
               </div>
-              <button className="shrink-0 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-[12px] font-medium text-red-600 dark:text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30">
-                Delete
-              </button>
+              <DeleteAccountButton />
             </Row>
           </div>
         </section>
