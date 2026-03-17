@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NoteCrate",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Highlight, clip, and save web content to your research workspace.",
   "permissions": [
     "storage",
@@ -48,8 +48,7 @@
   },
   "externally_connectable": {
     "matches": [
-      "https://notecrate.me/*",
-      "http://localhost:3000/*"
+      "https://notecrate.me/*"
     ]
   }
 }
