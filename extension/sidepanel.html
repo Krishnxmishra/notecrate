@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="sidepanel.css" />
+  <title>NoteCrate</title>
+</head>
+<body>
+  <div class="panel">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <span class="logo-text" id="headerAccountName">NoteCrate</span>
+      </div>
+      <div class="header-actions">
+        <!-- Open dashboard -->
+        <button id="openApp" class="icon-btn" title="Open dashboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </button>
+        <!-- Dark/light toggle -->
+        <button id="settingsBtn" class="icon-btn" title="Toggle dark mode" id="themeToggleBtn">
+          <svg id="iconMoon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+          <svg id="iconSun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <!-- Highlight toggle -->
+      <div class="toolbar-row">
+        <div class="toolbar-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m9 11-6 6v3h9l3-3"/>
+            <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+          </svg>
+          Highlighter
+        </div>
+        <button id="toggleHighlight" class="toggle" aria-label="Toggle highlighter">
+          <span class="toggle-knob"></span>
+        </button>
+      </div>
+
+      <!-- Colors -->
+      <div class="color-row" id="colorRow">
+        <button class="color-btn active" data-color="yellow"><span class="dot yellow"></span></button>
+        <button class="color-btn" data-color="blue"><span class="dot blue"></span></button>
+        <button class="color-btn" data-color="pink"><span class="dot pink"></span></button>
+        <button class="color-btn" data-color="green"><span class="dot green"></span></button>
+        <button class="color-btn" data-color="orange"><span class="dot orange"></span></button>
+      </div>
+
+      <!-- Folder section header -->
+      <div class="folder-section-header">
+        <div class="toolbar-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+          </svg>
+          Save to
+          <span class="save-to-count" id="saveToCount"></span>
+        </div>
+        <div class="folder-header-actions">
+          <button id="clearAllBtn" class="clear-all-btn" style="display:none">Clear all</button>
+          <button id="newFolderBtn" class="new-folder-btn" title="New folder">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New
+          </button>
+        </div>
+      </div>
+
+      <!-- Folder chips — tag/wrap multi-select -->
+      <div class="folder-list-wrap" id="folderListWrap">
+        <div class="folder-list" id="folderList">
+          <div class="folder-empty-state">Loading folders…</div>
+        </div>
+      </div>
+
+      <!-- Folder tree search bar -->
+      <div class="folder-search-wrap">
+        <div class="folder-search-input-row">
+          <svg class="folder-search-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+          <input type="text" id="folderSearchInput" class="folder-search-input" placeholder="Search folders…" autocomplete="off" />
+          <button id="folderSearchClear" class="folder-search-clear" style="display:none" title="Clear search">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="folder-search-secondary" id="folderSearchSecondary">
+          <span class="folder-count-text" id="folderCountText"></span>
+        </div>
+      </div>
+
+      <!-- Folder tree / search results — THE one scrollable zone -->
+      <div class="folder-zone" id="folderZone">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- YouTube Banner (shown on YT pages) -->
+    <div id="ytBanner" class="yt-banner hidden">
+      <div class="yt-banner-inner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="yt-icon">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <div class="yt-info">
+          <span class="yt-title" id="ytTitle">YouTube Video</span>
+          <span class="yt-time" id="ytTime">0:00</span>
+        </div>
+        <button id="saveClipBtn" class="save-clip-btn">Save clip</button>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tabs">
+      <button class="tab active" data-tab="highlights">
+        Folder
+        <span class="tab-count" id="highlightTabCount">0</span>
+      </button>
+      <button class="tab" data-tab="page">
+        This page
+        <span class="tab-count" id="pageTabCount">0</span>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="content" id="content">
+      <div class="empty">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+          <path d="m9 11-6 6v3h9l3-3"/>
+          <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+        </svg>
+        <p>No highlights yet</p>
+        <p class="sub">Select text on any page to save</p>
+      </div>
+    </div>
+
+    <!-- Folder context menu -->
+    <div id="folderContextMenu" class="context-menu hidden">
+      <button class="ctx-item" id="ctxSelect">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+        Select folder
+      </button>
+      <button class="ctx-item" id="ctxRename">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Rename
+      </button>
+      <div class="ctx-divider"></div>
+      <button class="ctx-item danger" id="ctxDelete">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        Delete folder
+      </button>
+    </div>
+
+    <!-- New Folder Dialog -->
+    <div id="newFolderDialog" class="dialog-overlay hidden">
+      <div class="dialog">
+        <div class="dialog-header">
+          <h3>New Folder</h3>
+          <button id="cancelFolder" class="dialog-close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <input id="newFolderInput" type="text" placeholder="Folder name" class="dialog-input" />
+        <!-- Optional: parent folder select -->
+        <div class="dialog-field">
+          <label class="dialog-label">Subfolder of (optional)</label>
+          <div class="dialog-select-wrap">
+            <select id="parentFolderSelect" class="dialog-select">
+              <option value="">— None (root folder) —</option>
+            </select>
+            <svg class="dialog-chevron" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button id="confirmFolder" class="dialog-btn primary">Create folder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Screen (shown when not logged in) -->
+    <div id="authScreen" class="auth-screen hidden">
+      <div class="auth-card">
+        <img class="auth-logo-img" id="authLogoImg" src="icons/logo-light.png" alt="NoteCrate" width="36" height="36" />
+        <h2 class="auth-title">NoteCrate</h2>
+        <p class="auth-subtitle">Sign up to start saving highlights from anywhere on the web.</p>
+        <button id="authGetStarted" class="dialog-btn primary auth-btn">Get started — it&apos;s free</button>
+        <button id="authSignInLink" class="dialog-btn secondary auth-btn">Sign in</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="config.js"></script>
+  <script src="supabase.min.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
