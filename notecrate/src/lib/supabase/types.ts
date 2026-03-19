@@ -78,6 +78,7 @@ export type Database = {
           image_url: string | null;
           video_id: string | null;
           video_timestamp: string | null;
+          document_url: string | null;
           folder_id: string;
           user_id: string;
           created_at: string;
@@ -92,6 +93,7 @@ export type Database = {
           image_url?: string | null;
           video_id?: string | null;
           video_timestamp?: string | null;
+          document_url?: string | null;
           folder_id: string;
           user_id: string;
           created_at?: string;
@@ -106,6 +108,7 @@ export type Database = {
           image_url?: string | null;
           video_id?: string | null;
           video_timestamp?: string | null;
+          document_url?: string | null;
           folder_id?: string;
           user_id?: string;
           created_at?: string;

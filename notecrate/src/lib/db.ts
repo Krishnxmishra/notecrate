@@ -23,6 +23,7 @@ interface HighlightRow {
   image_url: string | null;
   video_id: string | null;
   video_timestamp: string | null;
+  document_url: string | null;
 }
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -46,10 +47,11 @@ function mapHighlight(row: HighlightRow): Highlight {
     color: row.color as HighlightColor,
     folderId: row.folder_id,
     createdAt: row.created_at,
-    type: row.type as "text" | "image" | "video",
+    type: row.type as "text" | "image" | "video" | "document",
     imageUrl: row.image_url ?? undefined,
     videoId: row.video_id ?? undefined,
     videoTimestamp: row.video_timestamp ?? undefined,
+    documentUrl: row.document_url ?? undefined,
   };
 }
 

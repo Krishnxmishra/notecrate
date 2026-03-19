@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, MoreHorizontal, Play, Clock, Trash2, FolderInput, Palette, Copy } from "lucide-react";
+import { ExternalLink, MoreHorizontal, Play, Clock, Trash2, FolderInput, Palette, Copy, FileText } from "lucide-react";
 import { type Highlight, type Folder, HIGHLIGHT_COLORS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,83 @@ interface HighlightCardProps {
   highlight: Highlight;
   compact?: boolean;
   folders?: Folder[];
+}
+
+const DOC_TYPE_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  pdf: { color: "text-red-600", bg: "bg-red-50 dark:bg-red-950/40", label: "PDF" },
+  doc: { color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/40", label: "Word" },
+  docx: { color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/40", label: "Word" },
+  ppt: { color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-950/40", label: "Presentation" },
+  pptx: { color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-950/40", label: "Presentation" },
+  xls: { color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/40", label: "Spreadsheet" },
+  xlsx: { color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/40", label: "Spreadsheet" },
+  csv: { color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/40", label: "Spreadsheet" },
+  txt: { color: "text-neutral-600", bg: "bg-neutral-100 dark:bg-neutral-800", label: "Text" },
+  rtf: { color: "text-neutral-600", bg: "bg-neutral-100 dark:bg-neutral-800", label: "Text" },
+};
+const DEFAULT_DOC_CONFIG = { color: "text-neutral-600", bg: "bg-neutral-100 dark:bg-neutral-800", label: "Document" };
+
+function getDocExtension(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split(".").pop()?.toLowerCase();
+    return ext || "";
+  } catch { return ""; }
+}
+
+function getDocFilename(url: string, fallback: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split("/");
+    const last = segments[segments.length - 1];
+    return last ? decodeURIComponent(last) : fallback;
+  } catch { return fallback; }
+}
+
+function DocumentPreview({ url, filename }: { url: string; filename: string }) {
+  const ext = getDocExtension(url);
+  const config = DOC_TYPE_CONFIG[ext] || DEFAULT_DOC_CONFIG;
+  const displayName = getDocFilename(url, filename || "Document");
+  const isPdf = ext === "pdf";
+
+  return (
+    <div className="flex flex-col">
+      {isPdf && (
+        <div className="relative aspect-[4/3] w-full border-b border-border bg-neutral-100 dark:bg-neutral-900">
+          <iframe
+            src={`https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`}
+            className="absolute inset-0 h-full w-full border-none"
+            title={displayName}
+          />
+        </div>
+      )}
+      <div className={cn("flex items-center gap-3 px-4 py-3.5", config.bg)}>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg bg-white/80 dark:bg-neutral-900/80 shadow-sm", config.color)}>
+          <FileText className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-neutral-900 dark:text-neutral-100">
+            {displayName}
+          </p>
+          <div className="mt-0.5 flex items-center gap-2">
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", config.color)}>
+              {config.label}
+            </span>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] font-medium text-neutral-500 transition-colors hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function HighlightCard({ highlight, compact, folders = [] }: HighlightCardProps) {
@@ -148,9 +225,16 @@ export function HighlightCard({ highlight, compact, folders = [] }: HighlightCar
           </div>
         )}
 
+        {/* Document preview */}
+        {highlight.type === "document" && highlight.documentUrl && (
+          <div className="overflow-hidden rounded-t-lg border border-b-0 border-border">
+            <DocumentPreview url={highlight.documentUrl} filename={highlight.text} />
+          </div>
+        )}
+
         <div className={cn(
           "relative border border-border bg-card transition-all hover:shadow-[0_1px_4px_rgba(0,0,0,0.06)]",
-          (highlight.type === "video" || highlight.type === "image") ? "rounded-b-lg" : "rounded-lg",
+          (highlight.type === "video" || highlight.type === "image" || highlight.type === "document") ? "rounded-b-lg" : "rounded-lg",
         )}>
           <div className={cn("p-4", compact && "p-3.5")}>
             {/* Source + menu */}
@@ -224,6 +308,9 @@ export function HighlightCard({ highlight, compact, folders = [] }: HighlightCar
               </time>
               {highlight.type === "video" && (
                 <span className="hc-meta font-medium uppercase tracking-wider text-muted-foreground/50">Video</span>
+              )}
+              {highlight.type === "document" && (
+                <span className="hc-meta font-medium uppercase tracking-wider text-muted-foreground/50">Document</span>
               )}
             </div>
           </div>
